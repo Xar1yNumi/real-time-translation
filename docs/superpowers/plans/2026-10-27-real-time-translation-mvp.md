@@ -17,6 +17,9 @@
 - Azure API Key 仅保存到 Windows Credential Manager；仓库、配置和日志不得出现真实密钥。
 - 默认不保存音频、识别原文、译文或字幕历史。
 - 正常网络下，多数稳定译文的目标体验为说话结束后 2～4 秒。
+- 音频帧必须进入容量为 20 个 100 ms 帧的有界队列；单消费者顺序写入 Azure，队列满时丢弃最旧帧以限制内存和延迟。
+- 每条字幕更新必须携带 Azure ResultId 对应的 `UtteranceId` 和本地单调递增 `Sequence`；最终原文与译文作为一个原子事件发布。
+- WAV 测试文件必须通过 RIFF/WAV 解析器读取数据块，禁止假设音频数据固定从第 44 字节开始。
 - 不实现服务器、账号、本地模型、第二云端引擎、混音、配音、历史、托盘、全局快捷键或其他平台。
 - 每个任务执行 TDD：先写失败测试，再写最小实现，再运行相关测试和全量测试，最后单独提交。
 - 遇到 Azure SDK、NAudio 或 Windows 能力与设计不一致时停止该任务，记录复现步骤和证据，不擅自更换技术方案。
@@ -36,6 +39,7 @@ src/RealTimeTranslation.Core/
   AudioContracts.cs                              # 音频帧和音源接口
   TranslationContracts.cs                        # 流式翻译接口与事件
   SubtitleState.cs                               # 当前字幕状态和规约
+  BoundedAudioFrameQueue.cs                      # 20 帧有界音频队列
   TranslationCoordinator.cs                      # 会话状态机与生命周期
   RetryPolicy.cs                                 # 有限退避策略
 src/RealTimeTranslation.Infrastructure/
@@ -239,7 +243,7 @@ git commit -m "build: establish .NET solution baseline"
 
 **Interfaces:**
 - Consumes: none beyond BCL.
-- Produces: `TargetLanguage`, `LanguageCatalog`, `AudioFormat`, `AudioFrame`, `IAudioCaptureSource`, `ITranslationProvider`, `ITranslationSession`, `TranslationEventArgs`.
+- Produces: `TargetLanguage`, `LanguageCatalog`, `AudioFormat`, `AudioFrame`, `IAudioCaptureSource`, `ITranslationProvider`, `ITranslationSession`, `TranslationUpdateEventArgs`.
 
 - [ ] **Step 1: Write failing mapping and validation tests**
 
@@ -327,23 +331,50 @@ public interface IAudioCaptureSource : IAsyncDisposable
     ValueTask StopAsync(CancellationToken cancellationToken);
 }
 
-public enum TranslationEventKind
+public abstract record TranslationUpdate(string UtteranceId, long Sequence)
 {
-    PartialTranscript,
-    FinalTranscript,
-    FinalTranslation,
-    LanguageDetected,
-    Canceled
+    protected static string RequireId(string value) =>
+        string.IsNullOrWhiteSpace(value)
+            ? throw new ArgumentException("UtteranceId cannot be empty.", nameof(value))
+            : value;
 }
 
-public sealed class TranslationEventArgs(
-    TranslationEventKind kind,
-    string text,
-    string? languageCode = null) : EventArgs
+public sealed record PartialTranscriptUpdate : TranslationUpdate
 {
-    public TranslationEventKind Kind { get; } = kind;
-    public string Text { get; } = text;
-    public string? LanguageCode { get; } = languageCode;
+    public PartialTranscriptUpdate(string utteranceId, long sequence, string text)
+        : base(RequireId(utteranceId), sequence) => Text = text ?? string.Empty;
+
+    public string Text { get; }
+}
+
+public sealed record FinalUtteranceUpdate : TranslationUpdate
+{
+    public FinalUtteranceUpdate(
+        string utteranceId,
+        long sequence,
+        string originalText,
+        string translatedText,
+        string detectedLanguage)
+        : base(RequireId(utteranceId), sequence)
+    {
+        OriginalText = originalText ?? string.Empty;
+        TranslatedText = translatedText ?? string.Empty;
+        DetectedLanguage = detectedLanguage ?? string.Empty;
+    }
+
+    public string OriginalText { get; }
+    public string TranslatedText { get; }
+    public string DetectedLanguage { get; }
+}
+
+public sealed record TranslationCanceledUpdate(
+    string UtteranceId,
+    long Sequence,
+    string ErrorCode) : TranslationUpdate(UtteranceId, Sequence);
+
+public sealed class TranslationUpdateEventArgs(TranslationUpdate update) : EventArgs
+{
+    public TranslationUpdate Update { get; } = update;
 }
 
 public sealed record TranslationSessionOptions(string Endpoint, string ApiKey, TargetLanguage TargetLanguage);
@@ -357,7 +388,7 @@ public interface ITranslationProvider
 
 public interface ITranslationSession : IAsyncDisposable
 {
-    event EventHandler<TranslationEventArgs>? EventReceived;
+    event EventHandler<TranslationUpdateEventArgs>? UpdateReceived;
     ValueTask StartAsync(CancellationToken cancellationToken);
     ValueTask WriteAudioAsync(ReadOnlyMemory<byte> audio, CancellationToken cancellationToken);
     ValueTask StopAsync(CancellationToken cancellationToken);
@@ -386,49 +417,66 @@ git commit -m "feat: define streaming translation contracts"
 
 ---
 
-### Task 3: 实现字幕状态规约
+### Task 3: 实现按语句关联的字幕状态规约
 
 **Files:**
 - Create: `src/RealTimeTranslation.Core/SubtitleState.cs`
 - Test: `tests/RealTimeTranslation.Core.Tests/SubtitleStateTests.cs`
 
 **Interfaces:**
-- Consumes: `TranslationEventArgs` from Task 2.
-- Produces: immutable `SubtitleState.Apply(TranslationEventArgs)` used by coordinator and WPF view model.
+- Consumes: atomic `PartialTranscriptUpdate` and `FinalUtteranceUpdate` from Task 2.
+- Produces: immutable `SubtitleState.Apply(TranslationUpdate)` used by coordinator and WPF view model.
 
-- [ ] **Step 1: Write failing behavior tests**
+- [ ] **Step 1: Write failing association and stale-event tests**
 
 ```csharp
 public sealed class SubtitleStateTests
 {
     [Fact]
-    public void Partial_text_replaces_only_partial_transcript()
+    public void Final_original_and_translation_are_applied_atomically()
+    {
+        var state = SubtitleState.Empty.Apply(new FinalUtteranceUpdate(
+            "result-1", 1, "Hello", "你好", "en-US"));
+
+        Assert.Equal("result-1", state.UtteranceId);
+        Assert.Equal("Hello", state.OriginalText);
+        Assert.Equal("你好", state.TranslatedText);
+        Assert.False(state.IsOriginalPartial);
+    }
+
+    [Fact]
+    public void New_partial_clears_translation_instead_of_pairing_it_with_wrong_sentence()
     {
         var state = SubtitleState.Empty
-            .Apply(new(TranslationEventKind.FinalTranslation, "你好"))
-            .Apply(new(TranslationEventKind.PartialTranscript, "Hello ev"));
+            .Apply(new FinalUtteranceUpdate("result-1", 1, "Hello", "你好", "en-US"))
+            .Apply(new PartialTranscriptUpdate("result-2", 2, "How are"));
 
-        Assert.Equal("Hello ev", state.OriginalText);
+        Assert.Equal("result-2", state.UtteranceId);
+        Assert.Equal("How are", state.OriginalText);
+        Assert.Equal(string.Empty, state.TranslatedText);
         Assert.True(state.IsOriginalPartial);
-        Assert.Equal("你好", state.TranslatedText);
     }
 
     [Fact]
-    public void Final_translation_is_limited_to_two_display_lines()
+    public void Late_final_from_older_sequence_is_ignored()
     {
-        var state = SubtitleState.Empty.Apply(new(
-            TranslationEventKind.FinalTranslation,
-            "一\n二\n三"));
+        var state = SubtitleState.Empty
+            .Apply(new PartialTranscriptUpdate("result-2", 2, "How are"))
+            .Apply(new FinalUtteranceUpdate("result-1", 1, "Hello", "你好", "en-US"));
 
-        Assert.Equal("二\n三", state.TranslatedText);
+        Assert.Equal("result-2", state.UtteranceId);
+        Assert.Equal("How are", state.OriginalText);
+        Assert.Equal(string.Empty, state.TranslatedText);
     }
 
     [Fact]
-    public void Same_language_message_is_explicit()
+    public void Final_text_is_limited_to_two_display_lines()
     {
-        var state = SubtitleState.Empty.WithSameLanguageFinal("你好", "zh-CN");
-        Assert.Equal("你好", state.OriginalText);
-        Assert.Equal("与目标语言相同", state.TranslatedText);
+        var state = SubtitleState.Empty.Apply(new FinalUtteranceUpdate(
+            "result-1", 1, "one\ntwo\nthree", "一\n二\n三", "en-US"));
+
+        Assert.Equal("two\nthree", state.OriginalText.Replace("\r\n", "\n"));
+        Assert.Equal("二\n三", state.TranslatedText.Replace("\r\n", "\n"));
     }
 }
 ```
@@ -437,49 +485,45 @@ Run: `dotnet test tests/RealTimeTranslation.Core.Tests --filter SubtitleStateTes
 
 Expected: FAIL because `SubtitleState` does not exist.
 
-- [ ] **Step 2: Implement the reducer**
+- [ ] **Step 2: Implement sequence-aware atomic subtitle state**
 
 ```csharp
 namespace RealTimeTranslation.Core;
 
 public sealed record SubtitleState(
+    string UtteranceId,
+    long Sequence,
     string OriginalText,
     string TranslatedText,
-    string? DetectedLanguage,
+    string DetectedLanguage,
     bool IsOriginalPartial)
 {
-    public static SubtitleState Empty { get; } = new(string.Empty, string.Empty, null, false);
+    public static SubtitleState Empty { get; } = new(
+        string.Empty, -1, string.Empty, string.Empty, string.Empty, false);
 
-    public SubtitleState Apply(TranslationEventArgs value) => value.Kind switch
+    public SubtitleState Apply(TranslationUpdate update)
     {
-        TranslationEventKind.PartialTranscript => this with
-        {
-            OriginalText = LastTwoLines(value.Text),
-            IsOriginalPartial = true
-        },
-        TranslationEventKind.FinalTranscript => this with
-        {
-            OriginalText = LastTwoLines(value.Text),
-            IsOriginalPartial = false
-        },
-        TranslationEventKind.FinalTranslation => this with
-        {
-            TranslatedText = LastTwoLines(value.Text)
-        },
-        TranslationEventKind.LanguageDetected => this with
-        {
-            DetectedLanguage = value.LanguageCode
-        },
-        _ => this
-    };
+        if (update.Sequence < Sequence) return this;
 
-    public SubtitleState WithSameLanguageFinal(string original, string languageCode) => this with
-    {
-        OriginalText = LastTwoLines(original),
-        TranslatedText = "与目标语言相同",
-        DetectedLanguage = languageCode,
-        IsOriginalPartial = false
-    };
+        return update switch
+        {
+            PartialTranscriptUpdate partial => new(
+                partial.UtteranceId,
+                partial.Sequence,
+                LastTwoLines(partial.Text),
+                string.Empty,
+                string.Empty,
+                true),
+            FinalUtteranceUpdate final => new(
+                final.UtteranceId,
+                final.Sequence,
+                LastTwoLines(final.OriginalText),
+                LastTwoLines(final.TranslatedText),
+                final.DetectedLanguage,
+                false),
+            _ => this
+        };
+    }
 
     private static string LastTwoLines(string text)
     {
@@ -494,11 +538,11 @@ public sealed record SubtitleState(
 
 Run: `dotnet test RealTimeTranslation.slnx`
 
-Expected: all tests pass.
+Expected: all tests pass and no test can display a translation whose `UtteranceId` differs from the displayed original.
 
 ```powershell
 git add src/RealTimeTranslation.Core/SubtitleState.cs tests/RealTimeTranslation.Core.Tests/SubtitleStateTests.cs
-git commit -m "feat: add bounded subtitle state"
+git commit -m "feat: associate subtitles by utterance"
 ```
 
 ---
@@ -507,15 +551,17 @@ git commit -m "feat: add bounded subtitle state"
 
 **Files:**
 - Create: `src/RealTimeTranslation.Core/RetryPolicy.cs`
+- Create: `src/RealTimeTranslation.Core/BoundedAudioFrameQueue.cs`
 - Create: `src/RealTimeTranslation.Core/TranslationCoordinator.cs`
 - Test: `tests/RealTimeTranslation.Core.Tests/RetryPolicyTests.cs`
+- Test: `tests/RealTimeTranslation.Core.Tests/BoundedAudioFrameQueueTests.cs`
 - Test: `tests/RealTimeTranslation.Core.Tests/TranslationCoordinatorTests.cs`
 - Test support: `tests/RealTimeTranslation.Core.Tests/Fakes/FakeAudioSource.cs`
 - Test support: `tests/RealTimeTranslation.Core.Tests/Fakes/FakeTranslationProvider.cs`
 
 **Interfaces:**
 - Consumes: all Task 2 contracts and `SubtitleState`.
-- Produces: `TranslationCoordinator.StartAsync`, `PauseAsync`, `ResumeAsync`, `StopAsync`, `StateChanged`, and `SubtitleChanged`.
+- Produces: a 20-frame bounded queue, one sequential Azure writer, and `TranslationCoordinator.StartAsync`, `PauseAsync`, `ResumeAsync`, `StopAsync`, `StateChanged`, and `SubtitleChanged`.
 
 - [ ] **Step 1: Write retry policy tests**
 
@@ -543,7 +589,67 @@ public sealed record RetryPolicy(IReadOnlyList<TimeSpan> Delays)
 }
 ```
 
-- [ ] **Step 2: Write failing lifecycle tests**
+- [ ] **Step 2: Write the failing bounded-queue test, then implement it**
+
+```csharp
+public sealed class BoundedAudioFrameQueueTests
+{
+    [Fact]
+    public async Task Capacity_twenty_drops_oldest_frames_and_preserves_order()
+    {
+        var queue = new BoundedAudioFrameQueue(20);
+        for (byte value = 0; value < 25; value++)
+            Assert.True(queue.TryWrite(new AudioFrame([value])));
+        queue.Complete();
+
+        var values = new List<byte>();
+        await foreach (var frame in queue.ReadAllAsync(CancellationToken.None))
+            values.Add(frame.Data[0]);
+
+        Assert.Equal(20, values.Count);
+        Assert.Equal(5, values[0]);
+        Assert.Equal(24, values[^1]);
+    }
+}
+```
+
+Run: `dotnet test tests/RealTimeTranslation.Core.Tests --filter BoundedAudioFrameQueueTests`
+
+Expected: FAIL because `BoundedAudioFrameQueue` does not exist.
+
+Implement:
+
+```csharp
+using System.Threading.Channels;
+
+namespace RealTimeTranslation.Core;
+
+public sealed class BoundedAudioFrameQueue
+{
+    public const int DefaultCapacity = 20;
+    private readonly Channel<AudioFrame> channel;
+
+    public BoundedAudioFrameQueue(int capacity = DefaultCapacity)
+    {
+        if (capacity <= 0) throw new ArgumentOutOfRangeException(nameof(capacity));
+        channel = Channel.CreateBounded<AudioFrame>(new BoundedChannelOptions(capacity)
+        {
+            SingleReader = true,
+            SingleWriter = false,
+            FullMode = BoundedChannelFullMode.DropOldest
+        });
+    }
+
+    public bool TryWrite(AudioFrame frame) => channel.Writer.TryWrite(frame);
+    public IAsyncEnumerable<AudioFrame> ReadAllAsync(CancellationToken cancellationToken) =>
+        channel.Reader.ReadAllAsync(cancellationToken);
+    public void Complete() => channel.Writer.TryComplete();
+}
+```
+
+Run the test again. Expected: PASS; only values 5 through 24 are read.
+
+- [ ] **Step 3: Write failing lifecycle and sequential-write tests**
 
 ```csharp
 public sealed class TranslationCoordinatorTests
@@ -576,6 +682,21 @@ public sealed class TranslationCoordinatorTests
         Assert.Equal(1, audio.StopCount);
         Assert.Equal(1, provider.LastSession.StopCount);
     }
+
+    [Fact]
+    public async Task Audio_frames_are_written_sequentially_through_one_consumer()
+    {
+        var audio = new FakeAudioSource();
+        var provider = new FakeTranslationProvider(writeDelay: TimeSpan.FromMilliseconds(10));
+        await using var coordinator = new TranslationCoordinator(provider, _ => audio, _ => Task.CompletedTask);
+        await coordinator.StartAsync(TestOptions.Value, CancellationToken.None);
+
+        for (var index = 0; index < 30; index++)
+            audio.Emit(new AudioFrame([checked((byte)index)]));
+        await provider.LastSession.WaitForWritesAsync(20, TimeSpan.FromSeconds(2));
+
+        Assert.Equal(1, provider.LastSession.MaximumConcurrentWrites);
+    }
 }
 ```
 
@@ -585,7 +706,7 @@ Run: `dotnet test tests/RealTimeTranslation.Core.Tests --filter TranslationCoord
 
 Expected: FAIL because coordinator types do not exist.
 
-- [ ] **Step 3: Implement the explicit state machine**
+- [ ] **Step 4: Implement the explicit state machine and audio pump**
 
 ```csharp
 public enum SessionState { Idle, Connecting, Listening, Paused, Reconnecting, Failed, Stopping }
@@ -621,6 +742,8 @@ public sealed class TranslationCoordinator : IAsyncDisposable
     private IAudioCaptureSource? audio;
     private ITranslationSession? session;
     private SubtitleState subtitleState = SubtitleState.Empty;
+    private BoundedAudioFrameQueue? audioQueue;
+    private Task? audioPump;
 
     public TranslationCoordinator(
         ITranslationProvider provider,
@@ -681,35 +804,37 @@ public sealed class TranslationCoordinator : IAsyncDisposable
         session = await provider.CreateSessionAsync(
             new(options.Endpoint, options.ApiKey, options.TargetLanguage), sessionCts.Token);
         audio = audioFactory(options.Source);
-        session.EventReceived += OnTranslationEvent;
+        session.UpdateReceived += OnTranslationUpdate;
         audio.FrameAvailable += OnAudioFrame;
         audio.Faulted += OnAudioFault;
         await session.StartAsync(sessionCts.Token);
+        audioQueue = new BoundedAudioFrameQueue();
+        audioPump = PumpAudioAsync(audioQueue, session, sessionCts.Token);
         await audio.StartAsync(sessionCts.Token);
         SetState(SessionState.Listening);
     }
 
-    private async void OnAudioFrame(object? sender, AudioFrameEventArgs e)
+    private void OnAudioFrame(object? sender, AudioFrameEventArgs e) =>
+        audioQueue?.TryWrite(e.Frame);
+
+    private async Task PumpAudioAsync(
+        BoundedAudioFrameQueue queue,
+        ITranslationSession activeSession,
+        CancellationToken cancellationToken)
     {
-        var activeSession = session;
-        var token = sessionCts?.Token ?? new CancellationToken(true);
-        if (activeSession is null || token.IsCancellationRequested) return;
         try
         {
-            await activeSession.WriteAudioAsync(e.Frame.Data, token);
+            await foreach (var frame in queue.ReadAllAsync(cancellationToken))
+                await activeSession.WriteAudioAsync(frame.Data, cancellationToken);
         }
-        catch (OperationCanceledException) when (token.IsCancellationRequested)
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
-        }
-        catch (Exception)
-        {
-            SetState(SessionState.Failed, "翻译连接中断");
         }
     }
 
-    private void OnTranslationEvent(object? sender, TranslationEventArgs e)
+    private void OnTranslationUpdate(object? sender, TranslationUpdateEventArgs e)
     {
-        subtitleState = subtitleState.Apply(e);
+        subtitleState = subtitleState.Apply(e.Update);
         SubtitleChanged?.Invoke(this, new(subtitleState));
     }
 
@@ -720,11 +845,15 @@ public sealed class TranslationCoordinator : IAsyncDisposable
     {
         sessionCts?.Cancel();
         if (audio is not null) await audio.StopAsync(cancellationToken);
+        audioQueue?.Complete();
+        if (audioPump is not null) await audioPump;
         if (session is not null) await session.StopAsync(cancellationToken);
         if (audio is not null) await audio.DisposeAsync();
         if (session is not null) await session.DisposeAsync();
         audio = null;
         session = null;
+        audioQueue = null;
+        audioPump = null;
         sessionCts?.Dispose();
         sessionCts = null;
     }
@@ -743,20 +872,20 @@ public sealed class TranslationCoordinator : IAsyncDisposable
 }
 ```
 
-After the basic tests pass, add a test that raises three transient cancellation events and verifies delays 1/2/4, then a fourth failure enters `Failed`; implement retry in a private `ReconnectAsync` guarded by the current session ID. User pause must cancel that loop.
+After the basic tests pass, add a test that raises three transient cancellation updates and verifies delays 1/2/4, then a fourth failure enters `Failed`; implement retry in a private `ReconnectAsync` guarded by the current session ID. User pause must cancel that loop. The queue and pump belong to one session ID and are recreated on every reconnect.
 
-- [ ] **Step 4: Verify race and lifecycle tests**
+- [ ] **Step 5: Verify queue, race, and lifecycle tests**
 
 Run:
 
 ```powershell
-dotnet test tests/RealTimeTranslation.Core.Tests --filter "RetryPolicyTests|TranslationCoordinatorTests"
+dotnet test tests/RealTimeTranslation.Core.Tests --filter "RetryPolicyTests|BoundedAudioFrameQueueTests|TranslationCoordinatorTests"
 dotnet test RealTimeTranslation.slnx
 ```
 
 Expected: all tests pass; fake counts prove only one source and one session exist.
 
-- [ ] **Step 5: Commit**
+- [ ] **Step 6: Commit**
 
 ```powershell
 git add src/RealTimeTranslation.Core tests/RealTimeTranslation.Core.Tests
@@ -943,33 +1072,76 @@ var audioConfig = AudioConfig.FromStreamInput(pushStream);
 var recognizer = new TranslationRecognizer(config, autoDetect, audioConfig);
 ```
 
-Map Azure callbacks exactly:
+Map Azure callbacks so every final subtitle is one atomic, sentence-associated update:
 
 ```csharp
-recognizer.Recognizing += (_, e) => Raise(TranslationEventKind.PartialTranscript, e.Result.Text);
+var sequences = new ConcurrentDictionary<string, long>(StringComparer.Ordinal);
+long nextSequence = 0;
+long SequenceFor(string resultId) =>
+    sequences.GetOrAdd(resultId, _ => Interlocked.Increment(ref nextSequence));
+
+recognizer.Recognizing += (_, e) =>
+{
+    var resultId = e.Result.ResultId;
+    Raise(new PartialTranscriptUpdate(resultId, SequenceFor(resultId), e.Result.Text));
+};
 recognizer.Recognized += (_, e) =>
 {
-    Raise(TranslationEventKind.FinalTranscript, e.Result.Text);
+    var resultId = e.Result.ResultId;
+    var sequence = SequenceFor(resultId);
     var detected = e.Result.Properties.GetProperty(
         PropertyId.SpeechServiceConnection_AutoDetectSourceLanguageResult);
-    if (!string.IsNullOrWhiteSpace(detected))
-        Raise(TranslationEventKind.LanguageDetected, detected, detected);
     var target = LanguageCatalog.GetTargetCode(options.TargetLanguage);
-    if (e.Result.Translations.TryGetValue(target, out var translated))
-        Raise(TranslationEventKind.FinalTranslation, translated, detected);
+    e.Result.Translations.TryGetValue(target, out var translated);
+    Raise(new FinalUtteranceUpdate(
+        resultId,
+        sequence,
+        e.Result.Text,
+        translated ?? string.Empty,
+        detected ?? string.Empty));
+    sequences.TryRemove(resultId, out _);
 };
 recognizer.Canceled += (_, e) =>
-    Raise(TranslationEventKind.Canceled, $"{e.Reason}: {e.ErrorCode}");
+    Raise(new TranslationCanceledUpdate(
+        "session",
+        Interlocked.Increment(ref nextSequence),
+        $"{e.Reason}: {e.ErrorCode}"));
 
-void Raise(TranslationEventKind kind, string text, string? languageCode = null) =>
-    EventReceived?.Invoke(this, new TranslationEventArgs(kind, text, languageCode));
+void Raise(TranslationUpdate update) =>
+    UpdateReceived?.Invoke(this, new TranslationUpdateEventArgs(update));
 ```
 
 `WriteAudioAsync` calls `pushStream.Write(audio.ToArray())` only while started. `StopAsync` calls `StopContinuousRecognitionAsync`, closes the push stream, and is idempotent. `DisposeAsync` disposes recognizer, audio config, stream, and format exactly once.
 
 - [ ] **Step 3: Verify start/stop and prerecorded samples**
 
-Add one self-recorded 16 kHz mono WAV sample per source language under `tests/fixtures/audio/`, with matching `.license.txt` declaring project ownership and MIT redistribution. The integration test strips the 44-byte WAV header, streams PCM in 100 ms chunks, and asserts a non-empty final transcript and translation.
+Add one self-recorded 16 kHz mono PCM WAV sample per source language under `tests/fixtures/audio/`, with matching `.license.txt` declaring project ownership and MIT redistribution. At least one fixture must contain a valid non-audio RIFF chunk before `data`, proving the test path does not assume a 44-byte header.
+
+Read WAV files with NAudio's RIFF parser and stream only the parsed data chunk:
+
+```csharp
+private static async Task StreamWaveAsync(
+    string path,
+    ITranslationSession session,
+    CancellationToken cancellationToken)
+{
+    using var reader = new WaveFileReader(path);
+    Assert.Equal(WaveFormatEncoding.Pcm, reader.WaveFormat.Encoding);
+    Assert.Equal(16_000, reader.WaveFormat.SampleRate);
+    Assert.Equal(16, reader.WaveFormat.BitsPerSample);
+    Assert.Equal(1, reader.WaveFormat.Channels);
+
+    var buffer = new byte[3_200];
+    int read;
+    while ((read = reader.Read(buffer, 0, buffer.Length)) > 0)
+    {
+        await session.WriteAudioAsync(buffer.AsMemory(0, read), cancellationToken);
+        await Task.Delay(TimeSpan.FromMilliseconds(100), cancellationToken);
+    }
+}
+```
+
+Add `Wav_with_extra_chunks_streams_only_pcm_data` and assert the number of bytes sent equals `WaveFileReader.Length`. No code may seek to offset 44 or subtract 44 from file length.
 
 Run each target direction explicitly:
 
@@ -1187,6 +1359,8 @@ Proceed only if system loopback, all three languages, 2–4 second typical exper
 git add tools/RealTimeTranslation.Feasibility docs/feasibility/azure-audio-report.md
 git commit -m "docs: record translation feasibility results"
 ```
+
+Stop after this commit. Present `docs/feasibility/azure-audio-report.md`, measured results, failures, and the Task 1–8 commit list to the project owner. Do not begin Task 9 or any UI implementation until the owner explicitly approves the feasibility gate.
 
 ---
 
@@ -1550,7 +1724,7 @@ Do not create or push tag `v0.1.0` until the owner explicitly authorizes publica
 
 - After Task 1: solution baseline review.
 - After Task 6: Azure API behavior review; stop on mismatch.
-- After Task 8: formal feasibility gate; no UI work before approval.
+- After Task 8: mandatory stop. Submit the committed feasibility report and wait for explicit approval; no UI work before approval.
 - After Task 10: interactive UX review.
 - After Task 12: release readiness review; publishing remains a separate explicit authorization.
 
