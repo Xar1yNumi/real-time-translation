@@ -600,7 +600,7 @@ public sealed class BoundedAudioFrameQueueTests
     [Fact]
     public async Task Capacity_twenty_drops_oldest_frames_and_preserves_order()
     {
-        var queue = new BoundedAudioFrameQueue(20);
+        var queue = new BoundedAudioFrameBuffer(20);
         for (byte value = 0; value < 25; value++)
             Assert.True(queue.TryWrite(new AudioFrame([value])));
         queue.Complete();
@@ -618,7 +618,7 @@ public sealed class BoundedAudioFrameQueueTests
 
 Run: `dotnet test tests/RealTimeTranslation.Core.Tests --filter BoundedAudioFrameQueueTests`
 
-Expected: FAIL because `BoundedAudioFrameQueue` does not exist.
+Expected: FAIL because `BoundedAudioFrameBuffer` does not exist.
 
 Implement:
 
@@ -627,14 +627,14 @@ using System.Threading.Channels;
 
 namespace RealTimeTranslation.Core;
 
-public sealed class BoundedAudioFrameQueue
+public sealed class BoundedAudioFrameBuffer
 {
     public const int DefaultCapacity = 20;
     private readonly Channel<AudioFrame> channel;
 
-    public BoundedAudioFrameQueue(int capacity = DefaultCapacity)
+    public BoundedAudioFrameBuffer(int capacity = DefaultCapacity)
     {
-        if (capacity <= 0) throw new ArgumentOutOfRangeException(nameof(capacity));
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(capacity);
         channel = Channel.CreateBounded<AudioFrame>(new BoundedChannelOptions(capacity)
         {
             SingleReader = true,
@@ -745,7 +745,7 @@ public sealed class TranslationCoordinator : IAsyncDisposable
     private IAudioCaptureSource? audio;
     private ITranslationSession? session;
     private SubtitleState subtitleState = SubtitleState.Empty;
-    private BoundedAudioFrameQueue? audioQueue;
+    private BoundedAudioFrameBuffer? audioQueue;
     private Task? audioPump;
 
     public TranslationCoordinator(
@@ -811,7 +811,7 @@ public sealed class TranslationCoordinator : IAsyncDisposable
         audio.FrameAvailable += OnAudioFrame;
         audio.Faulted += OnAudioFault;
         await session.StartAsync(sessionCts.Token);
-        audioQueue = new BoundedAudioFrameQueue();
+        audioQueue = new BoundedAudioFrameBuffer();
         audioPump = PumpAudioAsync(audioQueue, session, sessionCts.Token);
         await audio.StartAsync(sessionCts.Token);
         SetState(SessionState.Listening);
@@ -821,7 +821,7 @@ public sealed class TranslationCoordinator : IAsyncDisposable
         audioQueue?.TryWrite(e.Frame);
 
     private async Task PumpAudioAsync(
-        BoundedAudioFrameQueue queue,
+        BoundedAudioFrameBuffer queue,
         ITranslationSession activeSession,
         CancellationToken cancellationToken)
     {
