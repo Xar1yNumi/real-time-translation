@@ -1,0 +1,16 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/RealTimeTranslation.Core/RealTimeTranslation.Core.csproj" />
+    <Project Path="src/RealTimeTranslation.Desktop/RealTimeTranslation.Desktop.csproj" />
+    <Project Path="src/RealTimeTranslation.Infrastructure/RealTimeTranslation.Infrastructure.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/RealTimeTranslation.Core.Tests/RealTimeTranslation.Core.Tests.csproj" />
+    <Project Path="tests/RealTimeTranslation.Desktop.Tests/RealTimeTranslation.Desktop.Tests.csproj" />
+    <Project Path="tests/RealTimeTranslation.Infrastructure.Tests/RealTimeTranslation.Infrastructure.Tests.csproj" />
+    <Project Path="tests/RealTimeTranslation.IntegrationTests/RealTimeTranslation.IntegrationTests.csproj" />
+  </Folder>
+  <Folder Name="/tools/">
+    <Project Path="tools/RealTimeTranslation.Feasibility/RealTimeTranslation.Feasibility.csproj" />
+  </Folder>
+</Solution>

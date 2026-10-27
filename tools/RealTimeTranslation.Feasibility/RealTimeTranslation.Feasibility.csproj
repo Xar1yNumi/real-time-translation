@@ -1,0 +1,12 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\RealTimeTranslation.Core\RealTimeTranslation.Core.csproj" />
+    <ProjectReference Include="..\..\src\RealTimeTranslation.Infrastructure\RealTimeTranslation.Infrastructure.csproj" />
+  </ItemGroup>
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+  </PropertyGroup>
+
+</Project>

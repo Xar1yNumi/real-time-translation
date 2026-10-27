@@ -129,6 +129,9 @@ Create `global.json`:
     "version": "10.0.301",
     "rollForward": "latestPatch",
     "allowPrerelease": false
+  },
+  "test": {
+    "runner": "Microsoft.Testing.Platform"
   }
 }
 ```
@@ -163,7 +166,7 @@ Create `Directory.Packages.props`:
 </Project>
 ```
 
-Replace each test project package list with `<PackageReference Include="xunit.v3" />`; add `Microsoft.CognitiveServices.Speech` and `NAudio` only to Infrastructure.
+Replace each test project package list with `<PackageReference Include="xunit.v3" />` and set `<OutputType>Exe</OutputType>` because xUnit v3 test projects are standalone executables. Add `Microsoft.CognitiveServices.Speech` and `NAudio` only to Infrastructure.
 
 Remove every generated per-project `<TargetFramework>` element so `Directory.Build.props` is the single source of truth. Keep `<UseWPF>true</UseWPF>` and `<OutputType>WinExe</OutputType>` in the Desktop project.
 
@@ -177,7 +180,7 @@ namespace RealTimeTranslation.Core.Tests;
 public sealed class SolutionSmokeTests
 {
     [Fact]
-    public void CoreAssembly_is_loadable()
+    public void CoreAssemblyIsLoadable()
     {
         Assert.NotNull(typeof(SolutionSmokeTests).Assembly);
     }

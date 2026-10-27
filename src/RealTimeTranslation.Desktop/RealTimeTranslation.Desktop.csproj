@@ -1,0 +1,13 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <ProjectReference Include="..\RealTimeTranslation.Core\RealTimeTranslation.Core.csproj" />
+    <ProjectReference Include="..\RealTimeTranslation.Infrastructure\RealTimeTranslation.Infrastructure.csproj" />
+  </ItemGroup>
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <UseWPF>true</UseWPF>
+  </PropertyGroup>
+
+</Project>
