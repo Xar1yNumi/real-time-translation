@@ -9,4 +9,8 @@
     <PackageReference Include="NAudio" />
   </ItemGroup>
 
+  <ItemGroup>
+    <InternalsVisibleTo Include="RealTimeTranslation.IntegrationTests" />
+  </ItemGroup>
+
 </Project>
