@@ -2,6 +2,7 @@ using System.Buffers.Binary;
 using NAudio.Wave;
 using RealTimeTranslation.Core;
 using RealTimeTranslation.Infrastructure.Audio;
+using RealTimeTranslation.Infrastructure.Tests.TestSupport;
 
 namespace RealTimeTranslation.Infrastructure.Tests;
 
@@ -12,7 +13,7 @@ public sealed class WindowsAudioManualTests
     public async Task SystemLoopbackCapturesPlayback()
     {
         RequireManualRun();
-        var tone = CreatePcm16StereoTone();
+        var tone = AudioTestTone.CreatePcm16Stereo(TimeSpan.FromSeconds(4));
         using var stream = new RawSourceWaveStream(
             new MemoryStream(tone, writable: false),
             new WaveFormat(48_000, 16, 2));
@@ -98,20 +99,4 @@ public sealed class WindowsAudioManualTests
         }
     }
 
-    private static byte[] CreatePcm16StereoTone()
-    {
-        const int sampleRate = 48_000;
-        const int seconds = 4;
-        var bytes = new byte[sampleRate * seconds * 2 * sizeof(short)];
-        for (var frame = 0; frame < sampleRate * seconds; frame++)
-        {
-            var sample = (short)(Math.Sin(2 * Math.PI * 440 * frame / sampleRate)
-                * short.MaxValue * 0.05);
-            var offset = frame * 2 * sizeof(short);
-            BinaryPrimitives.WriteInt16LittleEndian(bytes.AsSpan(offset, 2), sample);
-            BinaryPrimitives.WriteInt16LittleEndian(bytes.AsSpan(offset + 2, 2), sample);
-        }
-
-        return bytes;
-    }
 }
