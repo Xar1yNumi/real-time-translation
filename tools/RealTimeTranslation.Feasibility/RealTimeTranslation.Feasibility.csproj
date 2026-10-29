@@ -9,4 +9,8 @@
     <OutputType>Exe</OutputType>
   </PropertyGroup>
 
+  <ItemGroup>
+    <InternalsVisibleTo Include="RealTimeTranslation.IntegrationTests" />
+  </ItemGroup>
+
 </Project>
