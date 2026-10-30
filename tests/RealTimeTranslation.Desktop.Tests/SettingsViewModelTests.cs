@@ -180,6 +180,22 @@ public sealed class SettingsViewModelTests
     }
 
     [Fact]
+    public async Task SubtitleWindowOpensBeforeAudioSessionStarts()
+    {
+        var fixture = new Fixture();
+        fixture.RequireWindowBeforeStart = true;
+        var model = fixture.Create();
+        model.Endpoint = "https://speech.example.com";
+        model.ApiKey = "test-key";
+        await model.TestConnectionAsync(CancellationToken.None);
+
+        await model.StartTranslationAsync(CancellationToken.None);
+
+        Assert.Equal(1, fixture.StartCount);
+        Assert.Equal(1, fixture.Windows.ShowCount);
+    }
+
+    [Fact]
     public async Task DeleteCredentialClearsStoredAndInMemoryKey()
     {
         var fixture = new Fixture();
@@ -210,6 +226,38 @@ public sealed class SettingsViewModelTests
         Assert.Equal("test-key", model.ApiKey);
     }
 
+    [Fact]
+    public async Task DraggedSubtitlePositionIsSavedWithNonSensitiveSettings()
+    {
+        var fixture = new Fixture();
+        var model = fixture.Create();
+        model.Endpoint = "https://speech.example.com";
+        model.ApiKey = "test-key";
+
+        await model.SaveSubtitlePositionAsync(170, 640, CancellationToken.None);
+
+        Assert.True(model.HasSavedSubtitlePosition);
+        Assert.Equal(170, fixture.Settings.Saved?.SubtitleLeft);
+        Assert.Equal(640, fixture.Settings.Saved?.SubtitleTop);
+        Assert.Equal("https://speech.example.com", fixture.Settings.Saved?.Endpoint);
+    }
+
+    [Fact]
+    public async Task TopLeftSubtitlePositionIsRestored()
+    {
+        var fixture = new Fixture();
+        var model = fixture.Create();
+        await model.SaveSubtitlePositionAsync(0, 0, CancellationToken.None);
+        fixture.Settings.Loaded = fixture.Settings.Saved;
+
+        var restarted = fixture.Create();
+        await restarted.InitializeAsync(CancellationToken.None);
+
+        Assert.True(restarted.HasSavedSubtitlePosition);
+        Assert.Equal(0, restarted.SubtitleLeft);
+        Assert.Equal(0, restarted.SubtitleTop);
+    }
+
     private sealed class Fixture
     {
         public FakeSettingsStore Settings { get; } = new();
@@ -217,6 +265,7 @@ public sealed class SettingsViewModelTests
         public FakeConnectionTester Tester { get; } = new();
         public FakeWindowOrchestrator Windows { get; } = new();
         public int StartCount { get; private set; }
+        public bool RequireWindowBeforeStart { get; set; }
 
         public SettingsViewModel Create() => new(
             Settings,
@@ -224,6 +273,11 @@ public sealed class SettingsViewModelTests
             Tester,
             (_, _) =>
             {
+                if (RequireWindowBeforeStart && Windows.ShowCount == 0)
+                {
+                    throw new InvalidOperationException("Audio started without subtitle window.");
+                }
+
                 StartCount++;
                 return ValueTask.CompletedTask;
             },
@@ -296,5 +350,7 @@ public sealed class SettingsViewModelTests
         public int ShowCount { get; private set; }
         public bool CanShowSubtitles { get; set; } = true;
         public void ShowSubtitles() => ShowCount++;
+        public void ShowSettings() { }
+        public void ShutdownApplication() { }
     }
 }

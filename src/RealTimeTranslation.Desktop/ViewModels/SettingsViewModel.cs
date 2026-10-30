@@ -25,6 +25,7 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
     private TargetLanguage selectedTargetLanguage = TargetLanguage.SimplifiedChinese;
     private double subtitleLeft;
     private double subtitleTop;
+    private bool hasSavedSubtitlePosition;
     private bool credentialVerified;
     private bool isBusy;
     private bool sessionStarted;
@@ -169,6 +170,14 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
 
     public ICommand DeleteCredentialCommand => deleteCredentialCommand;
 
+    public StartTranslationOptions? ActiveOptions { get; private set; }
+
+    public double SubtitleLeft => subtitleLeft;
+
+    public double SubtitleTop => subtitleTop;
+
+    public bool HasSavedSubtitlePosition => hasSavedSubtitlePosition;
+
     private bool HasValidEndpoint => Uri.TryCreate(Endpoint, UriKind.Absolute, out var uri)
         && uri.Scheme == Uri.UriSchemeHttps && !string.IsNullOrWhiteSpace(uri.Host)
         && string.IsNullOrEmpty(uri.UserInfo);
@@ -186,6 +195,8 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
                 SelectedTargetLanguage = settings.TargetLanguage;
                 subtitleLeft = settings.SubtitleLeft;
                 subtitleTop = settings.SubtitleTop;
+                hasSavedSubtitlePosition = settings.SubtitlePositionSaved
+                    || subtitleLeft != 0 || subtitleTop != 0;
             }
 
             ApiKey = await credentialStore.ReadApiKeyAsync(cancellationToken) ?? string.Empty;
@@ -261,10 +272,12 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
         var selectedKey = ApiKey;
         var selectedSource = SelectedAudioSource;
         var selectedTarget = SelectedTargetLanguage;
+        var subtitlesShown = false;
         try
         {
             await settingsStore.SaveAsync(new AppSettings(
-                selectedEndpoint, selectedSource, selectedTarget, subtitleLeft, subtitleTop),
+                selectedEndpoint, selectedSource, selectedTarget, subtitleLeft, subtitleTop,
+                hasSavedSubtitlePosition),
                 cancellationToken);
             if (Endpoint != selectedEndpoint || ApiKey != selectedKey
                 || SelectedAudioSource != selectedSource || SelectedTargetLanguage != selectedTarget
@@ -274,14 +287,23 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
                 return;
             }
 
-            await startTranslation(new StartTranslationOptions(
-                selectedEndpoint, selectedKey, selectedSource, selectedTarget), cancellationToken);
+            var options = new StartTranslationOptions(
+                selectedEndpoint, selectedKey, selectedSource, selectedTarget);
+            ActiveOptions = options;
+            windowOrchestrator.ShowSubtitles();
+            subtitlesShown = true;
+            await startTranslation(options, cancellationToken);
             sessionStarted = true;
             StatusMessage = "翻译已启动。";
-            windowOrchestrator.ShowSubtitles();
         }
         catch (Exception) when (!cancellationToken.IsCancellationRequested)
         {
+            ActiveOptions = null;
+            if (subtitlesShown)
+            {
+                windowOrchestrator.ShowSettings();
+            }
+
             StatusMessage = "启动翻译失败，请检查连接和音频设备。";
         }
         finally
@@ -315,6 +337,32 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
             IsBusy = false;
             RefreshCommands();
         }
+    }
+
+    public async Task SaveSubtitlePositionAsync(
+        double left,
+        double top,
+        CancellationToken cancellationToken)
+    {
+        if (!double.IsFinite(left) || !double.IsFinite(top))
+        {
+            throw new ArgumentOutOfRangeException(nameof(left));
+        }
+
+        await settingsStore.SaveAsync(new AppSettings(
+            Endpoint, SelectedAudioSource, SelectedTargetLanguage, left, top, true),
+            cancellationToken);
+        subtitleLeft = left;
+        subtitleTop = top;
+        hasSavedSubtitlePosition = true;
+    }
+
+    public void MarkStopped()
+    {
+        sessionStarted = false;
+        ActiveOptions = null;
+        StatusMessage = "翻译已停止。点击开始翻译后才会再次采集音频。";
+        RefreshCommands();
     }
 
     private bool SetField<T>(ref T field, T value, [CallerMemberName] string? propertyName = null)

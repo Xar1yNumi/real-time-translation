@@ -67,6 +67,27 @@ public sealed class TranslationCoordinatorTests
     }
 
     [Fact]
+    public async Task ResumeAcceptsFirstUtteranceFromNewSession()
+    {
+        var first = new FakeTranslationSession();
+        var second = new FakeTranslationSession();
+        var provider = new FakeTranslationProvider(first, second);
+        await using var coordinator = new TranslationCoordinator(
+            provider, _ => new FakeAudioSource(), (_, _) => Task.CompletedTask);
+        var subtitles = new List<SubtitleState>();
+        coordinator.SubtitleChanged += (_, args) => subtitles.Add(args.State);
+        await coordinator.StartAsync(Options, CancellationToken.None);
+        first.Emit(new FinalUtteranceUpdate("old", 20, "old", "旧", "en-US"));
+
+        await coordinator.PauseAsync(CancellationToken.None);
+        await coordinator.ResumeAsync(Options, CancellationToken.None);
+        second.Emit(new FinalUtteranceUpdate("new", 1, "new", "新", "en-US"));
+
+        Assert.Contains(subtitles, state => state == SubtitleState.Empty);
+        Assert.Equal("new", subtitles[^1].OriginalText);
+    }
+
+    [Fact]
     public async Task ThreeFailedReconnectsUseOneTwoFourDelaysThenFail()
     {
         var initial = new FakeTranslationSession();

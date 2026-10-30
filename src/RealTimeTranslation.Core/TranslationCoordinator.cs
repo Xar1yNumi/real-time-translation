@@ -36,6 +36,7 @@ public sealed class SubtitleChangedEventArgs(SubtitleState state) : EventArgs
 public sealed class TranslationCoordinator : IAsyncDisposable
 {
     private readonly SemaphoreSlim lifecycleGate = new(1, 1);
+    private readonly object subtitleGate = new();
     private readonly ITranslationProvider provider;
     private readonly Func<AudioSourceKind, IAudioCaptureSource> audioFactory;
     private readonly Func<TimeSpan, CancellationToken, Task> delayAsync;
@@ -164,6 +165,11 @@ public sealed class TranslationCoordinator : IAsyncDisposable
         StartTranslationOptions options,
         CancellationToken cancellationToken)
     {
+        lock (subtitleGate)
+        {
+            subtitleState = SubtitleState.Empty;
+            SubtitleChanged?.Invoke(this, new SubtitleChangedEventArgs(subtitleState));
+        }
         resourceCancellation = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         var resourceToken = resourceCancellation.Token;
 
@@ -191,7 +197,10 @@ public sealed class TranslationCoordinator : IAsyncDisposable
         var localCancellation = resourceCancellation;
 
         audioSource = null;
-        translationSession = null;
+        lock (subtitleGate)
+        {
+            translationSession = null;
+        }
         audioBuffer = null;
         audioPump = null;
         resourceCancellation = null;
@@ -306,19 +315,22 @@ public sealed class TranslationCoordinator : IAsyncDisposable
 
     private void OnTranslationUpdate(object? sender, TranslationUpdateEventArgs args)
     {
-        if (!ReferenceEquals(sender, translationSession))
+        lock (subtitleGate)
         {
-            return;
+            if (!ReferenceEquals(sender, translationSession))
+            {
+                return;
+            }
+
+            if (args.Update is not TranslationCanceledUpdate)
+            {
+                subtitleState = subtitleState.Apply(args.Update);
+                SubtitleChanged?.Invoke(this, new SubtitleChangedEventArgs(subtitleState));
+                return;
+            }
         }
 
-        if (args.Update is TranslationCanceledUpdate)
-        {
-            ScheduleReconnect((ITranslationSession)sender!);
-            return;
-        }
-
-        subtitleState = subtitleState.Apply(args.Update);
-        SubtitleChanged?.Invoke(this, new SubtitleChangedEventArgs(subtitleState));
+        ScheduleReconnect((ITranslationSession)sender!);
     }
 
     private void ScheduleReconnect(ITranslationSession failedSession)

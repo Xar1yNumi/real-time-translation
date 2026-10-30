@@ -18,6 +18,7 @@ public partial class App : Application, IDisposable
 {
     private Mutex? singleton;
     private TranslationCoordinator? coordinator;
+    private SubtitleViewModel? subtitleViewModel;
     private bool ownsSingleton;
     private bool disposed;
 
@@ -53,9 +54,18 @@ public partial class App : Application, IDisposable
                 orchestrator,
                 GetCurrentDeviceName);
             var window = new SettingsWindow { DataContext = model };
+            subtitleViewModel = new SubtitleViewModel(
+                new CoordinatorSessionController(coordinator),
+                new WpfUiDispatcher(Dispatcher),
+                orchestrator,
+                () => model.ActiveOptions,
+                model.MarkStopped);
+            var subtitles = new SubtitleWindow(model) { DataContext = subtitleViewModel };
+            orchestrator.AttachWindows(window, subtitles);
             MainWindow = window;
             window.Show();
             await model.InitializeAsync(CancellationToken.None);
+            subtitles.RestorePosition();
         }
         catch (Exception)
         {
@@ -92,6 +102,7 @@ public partial class App : Application, IDisposable
         disposed = true;
         try
         {
+            subtitleViewModel?.Dispose();
             if (coordinator is not null)
             {
                 Task.Run(() => coordinator.DisposeAsync().AsTask())

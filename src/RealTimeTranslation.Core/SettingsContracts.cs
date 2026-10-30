@@ -5,7 +5,8 @@ public sealed record AppSettings(
     AudioSourceKind AudioSource,
     TargetLanguage TargetLanguage,
     double SubtitleLeft,
-    double SubtitleTop);
+    double SubtitleTop,
+    bool SubtitlePositionSaved = false);
 
 public interface IAppSettingsStore
 {
