@@ -1,0 +1,75 @@
+<Window x:Class="RealTimeTranslation.Desktop.SettingsWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:core="clr-namespace:RealTimeTranslation.Core;assembly=RealTimeTranslation.Core"
+        Title="实时翻译 · 设置"
+        Width="640" Height="720" MinWidth="520" MinHeight="620"
+        WindowStartupLocation="CenterScreen"
+        Background="#F7F9FC" FontFamily="Microsoft YaHei UI" FontSize="14">
+    <Window.Resources>
+        <Style TargetType="TextBox">
+            <Setter Property="Height" Value="38" />
+            <Setter Property="Padding" Value="10,6" />
+            <Setter Property="Margin" Value="0,7,0,0" />
+        </Style>
+        <Style TargetType="Button">
+            <Setter Property="MinHeight" Value="38" />
+            <Setter Property="Padding" Value="14,6" />
+        </Style>
+    </Window.Resources>
+    <ScrollViewer VerticalScrollBarVisibility="Auto">
+        <StackPanel Margin="28,26,28,30">
+            <TextBlock Text="实时翻译" FontSize="26" FontWeight="SemiBold" Foreground="#17243B" />
+            <TextBlock Text="选择一个音源，将中文、英语或俄语翻译成你选择的语言。"
+                       Margin="0,7,0,0" Foreground="#526277" TextWrapping="Wrap" />
+
+            <Border Background="#E8F0FB" CornerRadius="10" Padding="15" Margin="0,22,0,20">
+                <TextBlock Text="翻译期间音频会发送到 Azure。软件本身免费开源，Azure 服务可能产生费用；只有点击“开始翻译”后才会采集音频。"
+                           Foreground="#243B60" TextWrapping="Wrap" />
+            </Border>
+
+            <TextBlock Text="Azure Endpoint" FontWeight="SemiBold" Foreground="#17243B" />
+            <TextBox Text="{Binding Endpoint, UpdateSourceTrigger=PropertyChanged}"
+                     ToolTip="从 Azure Speech 资源的“密钥和终结点”页面复制"
+                     AutomationProperties.Name="Azure Endpoint" />
+
+            <TextBlock Text="API Key" FontWeight="SemiBold" Foreground="#17243B" Margin="0,18,0,0" />
+            <PasswordBox x:Name="ApiKeyBox" Height="38" Padding="10,6" Margin="0,7,0,0"
+                         PasswordChanged="OnPasswordChanged"
+                         AutomationProperties.Name="Azure API Key" />
+            <StackPanel Orientation="Horizontal" Margin="0,12,0,0">
+                <Button Content="测试连接" Command="{Binding TestConnectionCommand}" />
+                <Button Content="删除已保存凭据" Command="{Binding DeleteCredentialCommand}"
+                        Margin="10,0,0,0" />
+            </StackPanel>
+
+            <TextBlock Text="音源（一次只能选一个）" FontWeight="SemiBold"
+                       Foreground="#17243B" Margin="0,25,0,0" />
+            <StackPanel Orientation="Horizontal" Margin="0,11,0,0">
+                <RadioButton Content="系统声音" GroupName="AudioSource"
+                             IsChecked="{Binding IsSystemAudioSelected, Mode=TwoWay}"
+                             Margin="0,0,24,0" />
+                <RadioButton Content="麦克风" GroupName="AudioSource"
+                             IsChecked="{Binding IsMicrophoneSelected, Mode=TwoWay}" />
+            </StackPanel>
+            <TextBlock Text="{Binding CurrentDeviceName, StringFormat=当前设备：{0}}"
+                       Foreground="#526277" Margin="0,11,0,0" TextWrapping="Wrap" />
+
+            <TextBlock Text="目标语言" FontWeight="SemiBold" Foreground="#17243B"
+                       Margin="0,24,0,0" />
+            <ComboBox Height="38" Margin="0,7,0,0" SelectedValuePath="Tag"
+                      SelectedValue="{Binding SelectedTargetLanguage, Mode=TwoWay}"
+                      AutomationProperties.Name="目标语言">
+                <ComboBoxItem Content="简体中文" Tag="{x:Static core:TargetLanguage.SimplifiedChinese}" />
+                <ComboBoxItem Content="英语" Tag="{x:Static core:TargetLanguage.English}" />
+                <ComboBoxItem Content="俄语" Tag="{x:Static core:TargetLanguage.Russian}" />
+            </ComboBox>
+
+            <TextBlock Text="{Binding StatusMessage}" Foreground="#526277"
+                       Margin="0,23,0,0" TextWrapping="Wrap" MinHeight="42" />
+            <Button Content="开始翻译" Command="{Binding StartTranslationCommand}"
+                    Background="#1766D5" Foreground="White" FontWeight="SemiBold"
+                    HorizontalAlignment="Stretch" Margin="0,8,0,0" />
+        </StackPanel>
+    </ScrollViewer>
+</Window>

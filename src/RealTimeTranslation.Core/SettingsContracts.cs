@@ -22,3 +22,8 @@ public interface ICredentialStore
 
     ValueTask DeleteApiKeyAsync(CancellationToken cancellationToken);
 }
+
+public interface ITranslationConnectionTester
+{
+    Task TestAsync(string endpoint, string apiKey, CancellationToken cancellationToken);
+}
