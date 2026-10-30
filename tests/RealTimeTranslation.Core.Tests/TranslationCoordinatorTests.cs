@@ -129,6 +129,79 @@ public sealed class TranslationCoordinatorTests
         Assert.Equal(1, provider.CreateCount);
     }
 
+    [Fact]
+    public async Task ReconnectRetriesWhenSdkStartThrowsIoException()
+    {
+        var initial = new FakeTranslationSession();
+        var failedRetry = new FakeTranslationSession
+        {
+            StartException = new IOException("Simulated network failure.")
+        };
+        var recovered = new FakeTranslationSession();
+        var provider = new FakeTranslationProvider(initial, failedRetry, recovered);
+        var delays = new List<TimeSpan>();
+        var recoveredState = new TaskCompletionSource(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        await using var coordinator = new TranslationCoordinator(
+            provider,
+            _ => new FakeAudioSource(),
+            (delay, _) =>
+            {
+                delays.Add(delay);
+                return Task.CompletedTask;
+            });
+        coordinator.StateChanged += (_, args) =>
+        {
+            if (args.State == SessionState.Listening && provider.CreateCount == 3)
+            {
+                recoveredState.TrySetResult();
+            }
+        };
+        await coordinator.StartAsync(Options, CancellationToken.None);
+
+        initial.Emit(new TranslationCanceledUpdate("session", 1, "Network"));
+        await recoveredState.Task.WaitAsync(
+            TimeSpan.FromSeconds(2), TestContext.Current.CancellationToken);
+
+        Assert.Equal([TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2)], delays);
+        Assert.Equal(SessionState.Listening, coordinator.State);
+        Assert.Equal(3, provider.CreateCount);
+        Assert.Equal(1, failedRetry.DisposeCount);
+    }
+
+    [Fact]
+    public async Task ReconnectDisposesBrokenSessionWhenStopThrows()
+    {
+        var initial = new FakeTranslationSession
+        {
+            StopException = new IOException("Simulated broken connection.")
+        };
+        var recovered = new FakeTranslationSession();
+        var provider = new FakeTranslationProvider(initial, recovered);
+        var recoveredState = new TaskCompletionSource(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        await using var coordinator = new TranslationCoordinator(
+            provider,
+            _ => new FakeAudioSource(),
+            (_, _) => Task.CompletedTask);
+        coordinator.StateChanged += (_, args) =>
+        {
+            if (args.State == SessionState.Listening && provider.CreateCount == 2)
+            {
+                recoveredState.TrySetResult();
+            }
+        };
+        await coordinator.StartAsync(Options, CancellationToken.None);
+
+        initial.Emit(new TranslationCanceledUpdate("session", 1, "Network"));
+        await recoveredState.Task.WaitAsync(
+            TimeSpan.FromSeconds(2), TestContext.Current.CancellationToken);
+
+        Assert.Equal(1, initial.StopCount);
+        Assert.Equal(1, initial.DisposeCount);
+        Assert.Equal(SessionState.Listening, coordinator.State);
+    }
+
     private static TranslationCoordinator CreateCoordinator(
         FakeTranslationProvider provider,
         FakeAudioSource audio) => new(
@@ -138,6 +211,6 @@ public sealed class TranslationCoordinatorTests
 
     private static FakeTranslationSession FailedSession() => new()
     {
-        StartException = new InvalidOperationException("Expected test failure.")
+        StartException = new IOException("Simulated network failure.")
     };
 }

@@ -104,7 +104,11 @@ static async Task<int> RunLiveAsync(
     var stopwatch = Stopwatch.StartNew();
     var partialTimes = new ConcurrentDictionary<long, long>();
     var finalCount = 0;
+    var reconnectCount = 0;
     var failed = 0;
+    using var process = Process.GetCurrentProcess();
+    process.Refresh();
+    var peakPrivateBytes = process.PrivateMemorySize64;
     using var cancellation = new CancellationTokenSource();
     ConsoleCancelEventHandler cancelHandler = (_, eventArgs) =>
     {
@@ -132,6 +136,10 @@ static async Task<int> RunLiveAsync(
             if (eventArgs.State == SessionState.Failed)
             {
                 Interlocked.Exchange(ref failed, 1);
+            }
+            else if (eventArgs.State == SessionState.Reconnecting)
+            {
+                Interlocked.Increment(ref reconnectCount);
             }
         };
         coordinator.SubtitleChanged += (_, eventArgs) =>
@@ -161,16 +169,47 @@ static async Task<int> RunLiveAsync(
             new StartTranslationOptions(endpoint, apiKey, options.AudioSource!.Value,
                 options.TargetLanguage),
             cancellation.Token).ConfigureAwait(false);
-        try
+        var runTimer = Stopwatch.StartNew();
+        while (runTimer.Elapsed < options.Duration
+            && !cancellation.IsCancellationRequested
+            && Volatile.Read(ref failed) == 0)
         {
-            await Task.Delay(options.Duration, cancellation.Token).ConfigureAwait(false);
-        }
-        catch (OperationCanceledException) when (cancellation.IsCancellationRequested)
-        {
+            var remaining = options.Duration - runTimer.Elapsed;
+            var interval = remaining < TimeSpan.FromMinutes(1)
+                ? remaining : TimeSpan.FromMinutes(1);
+            try
+            {
+                await Task.Delay(interval, cancellation.Token).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException) when (cancellation.IsCancellationRequested)
+            {
+                break;
+            }
+
+            process.Refresh();
+            var privateBytes = process.PrivateMemorySize64;
+            peakPrivateBytes = Math.Max(peakPrivateBytes, privateBytes);
+            Console.WriteLine(
+                $"{DateTimeOffset.UtcNow:O} event=heartbeat "
+                + $"run-elapsed-ms={runTimer.ElapsedMilliseconds} "
+                + $"final-count={Volatile.Read(ref finalCount)} "
+                + $"reconnect-count={Volatile.Read(ref reconnectCount)} "
+                + $"private-mib={privateBytes / 1_048_576.0:F1}");
         }
 
         await coordinator.StopAsync(CancellationToken.None).ConfigureAwait(false);
-        return Volatile.Read(ref failed) == 0 && Volatile.Read(ref finalCount) > 0 ? 0 : 1;
+        process.Refresh();
+        peakPrivateBytes = Math.Max(peakPrivateBytes, process.PrivateMemorySize64);
+        Console.WriteLine(
+            $"{DateTimeOffset.UtcNow:O} event=summary "
+            + $"run-elapsed-ms={runTimer.ElapsedMilliseconds} "
+            + $"final-count={Volatile.Read(ref finalCount)} "
+            + $"reconnect-count={Volatile.Read(ref reconnectCount)} "
+            + $"peak-private-mib={peakPrivateBytes / 1_048_576.0:F1} "
+            + $"failed={Volatile.Read(ref failed)}");
+        return runTimer.Elapsed >= options.Duration
+            && Volatile.Read(ref failed) == 0
+            && Volatile.Read(ref finalCount) > 0 ? 0 : 1;
     }
     finally
     {

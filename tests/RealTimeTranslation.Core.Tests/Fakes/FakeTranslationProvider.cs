@@ -39,11 +39,15 @@ internal sealed class FakeTranslationSession : ITranslationSession
 
     public Exception? StartException { get; init; }
 
+    public Exception? StopException { get; init; }
+
     public bool BlockFirstWrite { get; init; }
 
     public int StartCount { get; private set; }
 
     public int StopCount { get; private set; }
+
+    public int DisposeCount { get; private set; }
 
     public int MaximumConcurrentWrites => maximumConcurrentWrites;
 
@@ -86,7 +90,9 @@ internal sealed class FakeTranslationSession : ITranslationSession
     public ValueTask StopAsync(CancellationToken cancellationToken)
     {
         StopCount++;
-        return ValueTask.CompletedTask;
+        return StopException is null
+            ? ValueTask.CompletedTask
+            : ValueTask.FromException(StopException);
     }
 
     public void Emit(TranslationUpdate update)
@@ -108,6 +114,7 @@ internal sealed class FakeTranslationSession : ITranslationSession
 
     public ValueTask DisposeAsync()
     {
+        DisposeCount++;
         writeCompleted.Dispose();
         return ValueTask.CompletedTask;
     }

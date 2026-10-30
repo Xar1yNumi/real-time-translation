@@ -1,3 +1,5 @@
+using System.Runtime.ExceptionServices;
+
 namespace RealTimeTranslation.Core;
 
 public enum SessionState
@@ -205,10 +207,24 @@ public sealed class TranslationCoordinator : IAsyncDisposable
             localSession.UpdateReceived -= OnTranslationUpdate;
         }
 
+        var failures = new List<Exception>();
+        async Task TryCleanupAsync(Func<ValueTask> cleanup)
+        {
+            try
+            {
+                await cleanup().ConfigureAwait(false);
+            }
+            catch (Exception exception)
+            {
+                failures.Add(exception);
+            }
+        }
+
         localCancellation?.Cancel();
         if (localAudio is not null)
         {
-            await localAudio.StopAsync(CancellationToken.None).ConfigureAwait(false);
+            await TryCleanupAsync(() => localAudio.StopAsync(CancellationToken.None))
+                .ConfigureAwait(false);
         }
 
         localBuffer?.Complete();
@@ -221,24 +237,38 @@ public sealed class TranslationCoordinator : IAsyncDisposable
             catch (OperationCanceledException) when (localCancellation?.IsCancellationRequested == true)
             {
             }
+            catch (Exception exception)
+            {
+                failures.Add(exception);
+            }
         }
 
         if (localSession is not null)
         {
-            await localSession.StopAsync(CancellationToken.None).ConfigureAwait(false);
+            await TryCleanupAsync(() => localSession.StopAsync(CancellationToken.None))
+                .ConfigureAwait(false);
         }
 
         if (localAudio is not null)
         {
-            await localAudio.DisposeAsync().ConfigureAwait(false);
+            await TryCleanupAsync(localAudio.DisposeAsync).ConfigureAwait(false);
         }
 
         if (localSession is not null)
         {
-            await localSession.DisposeAsync().ConfigureAwait(false);
+            await TryCleanupAsync(localSession.DisposeAsync).ConfigureAwait(false);
         }
 
         localCancellation?.Dispose();
+        if (failures.Count == 1)
+        {
+            ExceptionDispatchInfo.Capture(failures[0]).Throw();
+        }
+
+        if (failures.Count > 1)
+        {
+            throw new AggregateException("Translation resources failed to stop cleanly.", failures);
+        }
     }
 
     private static async Task PumpAudioAsync(
@@ -319,7 +349,14 @@ public sealed class TranslationCoordinator : IAsyncDisposable
                 var options = currentOptions;
                 var runToken = runCancellation.Token;
                 SetState(SessionState.Reconnecting);
-                await StopResourcesAsync().ConfigureAwait(false);
+                try
+                {
+                    await StopResourcesAsync().ConfigureAwait(false);
+                }
+                catch (Exception) when (!runToken.IsCancellationRequested)
+                {
+                    // A broken transport can fail to stop after all resources are disposed.
+                }
 
                 foreach (var retryDelay in retryPolicy.Delays)
                 {
@@ -334,9 +371,16 @@ public sealed class TranslationCoordinator : IAsyncDisposable
                     {
                         return;
                     }
-                    catch (InvalidOperationException)
+                    catch (Exception) when (!runToken.IsCancellationRequested)
                     {
-                        await StopResourcesAsync().ConfigureAwait(false);
+                        try
+                        {
+                            await StopResourcesAsync().ConfigureAwait(false);
+                        }
+                        catch (Exception)
+                        {
+                            // Cleanup proceeds through every resource before the next retry.
+                        }
                     }
                 }
 
@@ -349,6 +393,13 @@ public sealed class TranslationCoordinator : IAsyncDisposable
         }
         catch (OperationCanceledException) when (runCancellation?.IsCancellationRequested != false)
         {
+        }
+        catch (Exception)
+        {
+            if (runCancellation?.IsCancellationRequested == false)
+            {
+                SetState(SessionState.Failed, "翻译连接中断");
+            }
         }
         finally
         {
