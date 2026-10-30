@@ -1727,7 +1727,7 @@ Do not create or push tag `v0.1.0` until the owner explicitly authorizes publica
 
 - After Task 1: solution baseline review.
 - After Task 6: Azure API behavior review; stop on mismatch.
-- After Task 8: mandatory stop. Submit the committed feasibility report and wait for explicit approval; no UI work before approval.
+- After Task 8: mandatory stop. Submit the committed feasibility report and wait for explicit approval; no UI work before approval. On 2026-10-30 the project owner explicitly deferred the missing Azure live checks and approved proceeding to the next MVP task. This exception changes task order only; release validation still requires those checks.
 - After Task 10: interactive UX review.
 - After Task 12: release readiness review; publishing remains a separate explicit authorization.
 
