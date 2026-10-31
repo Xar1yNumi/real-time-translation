@@ -1,0 +1,25 @@
+name: Feature request
+description: Suggest a future improvement after the current MVP scope.
+title: "feature: "
+labels: [enhancement]
+body:
+  - type: markdown
+    attributes:
+      value: "The current MVP covers one audio source at a time, Chinese/English/Russian, and an overlay subtitle bar. Describe the user need without sending personal audio or credentials."
+  - type: textarea
+    id: need
+    attributes:
+      label: User need
+      description: What task is difficult today?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed behavior
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives or constraints

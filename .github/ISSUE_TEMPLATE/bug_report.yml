@@ -1,0 +1,41 @@
+name: Bug report
+description: Report a reproducible application defect without sharing credentials or personal audio.
+title: "bug: "
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: "For security issues, follow SECURITY.md. Do not include API keys, personal audio, transcripts, or unredacted logs."
+  - type: input
+    id: version
+    attributes:
+      label: Version or commit
+      placeholder: Commit hash or release version
+    validations:
+      required: true
+  - type: input
+    id: windows
+    attributes:
+      label: Windows version
+    validations:
+      required: true
+  - type: dropdown
+    id: source
+    attributes:
+      label: Audio source
+      options: [System audio, Microphone, Not applicable]
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Reproduction steps
+      description: Use synthetic or non-sensitive examples.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected and actual behavior
+    validations:
+      required: true

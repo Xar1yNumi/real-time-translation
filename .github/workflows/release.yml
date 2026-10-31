@@ -1,0 +1,29 @@
+name: release
+
+on:
+  push:
+    tags: ['v*']
+
+jobs:
+  publish:
+    runs-on: windows-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.301
+      - run: dotnet restore RealTimeTranslation.slnx --locked-mode
+      - run: dotnet format RealTimeTranslation.slnx --verify-no-changes
+      - run: dotnet test RealTimeTranslation.slnx --configuration Release --no-restore
+      - run: dotnet publish src/RealTimeTranslation.Desktop/RealTimeTranslation.Desktop.csproj --configuration Release --runtime win-x64 --self-contained true --output artifacts/win-x64 -p:RestoreLockedMode=true
+      - shell: pwsh
+        run: |
+          Compress-Archive -Path artifacts/win-x64/* -DestinationPath artifacts/RealTimeTranslation-win-x64.zip
+          (Get-FileHash artifacts/RealTimeTranslation-win-x64.zip -Algorithm SHA256).Hash | Set-Content artifacts/RealTimeTranslation-win-x64.sha256
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            artifacts/RealTimeTranslation-win-x64.zip
+            artifacts/RealTimeTranslation-win-x64.sha256

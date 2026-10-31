@@ -100,6 +100,17 @@
           "NAudio.WinMM": "3.3.0"
         }
       }
+    },
+    "net10.0-windows7.0/win-x64": {
+      "Microsoft.CognitiveServices.Speech": {
+        "type": "CentralTransitive",
+        "requested": "[1.53.0, )",
+        "resolved": "1.53.0",
+        "contentHash": "NJg99R1UXUn5SwSiOtV+iwzjf/cejr0Wo7YW7lXTcicfF6gwfDJmYEns33iTzIYcUB8k4XY2lyT7CFuzVV801g==",
+        "dependencies": {
+          "Azure.Core": "1.44.1"
+        }
+      }
     }
   }
 }

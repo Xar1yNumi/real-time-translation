@@ -44,10 +44,19 @@ dotnet run --project src/RealTimeTranslation.Desktop/RealTimeTranslation.Desktop
 
 ## 隐私
 
-翻译会话进行期间，音频从本机直接发送到 Azure AI Speech；项目没有自建服务器。软件本身不主动保存采集音频、识别原文、译文或字幕历史。Endpoint 等非敏感设置保存在当前用户的本地应用数据目录，API Key 保存在 Windows 凭据管理器。不要把真实密钥写入仓库、测试文件、日志或问题报告。
+翻译会话进行期间，音频从本机直接发送到 Azure AI Speech；项目没有自建服务器。软件本身不主动保存采集音频、识别原文、译文或字幕历史。Endpoint 等非敏感设置保存在当前用户的本地应用数据目录，API Key 保存在 Windows 凭据管理器。`%LOCALAPPDATA%/RealTimeTranslation/logs` 中有容量受限的诊断日志，只记录事件名、错误类别、时间戳和允许的数字指标。不要把真实密钥写入仓库、测试文件、日志或问题报告。详情见[隐私说明](docs/privacy.md)。
+
+## 故障排查
+
+- **连接测试失败：**检查 Endpoint 是否为 HTTPS、密钥是否属于你的 Azure Speech 资源，以及网络能否连接 Azure。认证和网络错误会显示不同的安全提示；真实服务行为仍待验证。
+- **没有出现文字：**检查所选音源和 Windows 默认设备。系统声音只采集默认播放流；静音时也可能产生音频帧。
+- **断线后字幕停止：**网络或服务故障只会按 1、2、4 秒进行有限重试。最终失败时请返回设置。真实断网恢复仍待实测。
+- **Azure 费用异常：**暂停或关闭会话，并在自己的 Azure 订阅中核对用量。
+
+截图将在 Windows 界面复核后补充；当前交互检查见[悬浮字幕检查点](docs/feasibility/subtitle-ux-checkpoint.md)。
 
 ## 项目进度
 
 项目已有本地自动化测试和 Windows 音频采集测试，其中包含一次 **30 分钟仅采集**的系统回环测试。这些结果不能证明云端翻译稳定。公开发布 `v0.1.0` 前，还需完成中英俄真实 Azure 测试、延迟测量、断网与恢复、悬浮窗交互，以及至少 30 分钟端到端翻译实测。后续工作见[MVP 实施计划](docs/superpowers/plans/2026-10-27-real-time-translation-mvp.md)。
 
-首个公开版本计划采用 **MIT** 许可证。`LICENSE` 及其余公开发布文档将在仓库公开前补齐。
+项目采用 [MIT 许可证](LICENSE)。另见[贡献指南](CONTRIBUTING.md)、[安全报告说明](SECURITY.md)、[变更记录](CHANGELOG.md)和[发布检查清单](docs/release-checklist.md)。公开发布 `v0.1.0` 仍需完成尚缺的真实服务检查，并取得项目负责人的发布确认。

@@ -44,10 +44,19 @@ For a call where you want to translate the other person's voice, choose system a
 
 ## Privacy
 
-During an active translation session, audio is sent directly from your computer to Azure AI Speech. The project does not run its own server. The application does not intentionally save captured audio, recognized text, translations, or subtitle history. Non-sensitive preferences, including the Endpoint, are saved under the current user's local application data; the API key is stored in Windows Credential Manager. Do not put a real key in the repository, test files, logs, or issue reports.
+During an active translation session, audio is sent directly from your computer to Azure AI Speech. The project does not run its own server. The application does not intentionally save captured audio, recognized text, translations, or subtitle history. Non-sensitive preferences, including the Endpoint, are saved under the current user's local application data; the API key is stored in Windows Credential Manager. Bounded diagnostic logs under `%LOCALAPPDATA%/RealTimeTranslation/logs` contain only event names, error categories, timestamps, and allowed numeric metrics. Do not put a real key in the repository, test files, logs, or issue reports. See the [privacy notes](docs/privacy.md).
+
+## Troubleshooting
+
+- **Connection test fails:** check that the Endpoint is HTTPS, that the key belongs to your Azure Speech resource, and that the network can reach Azure. Authentication and network failures have separate safe messages; live behavior still needs validation.
+- **No words appear:** check the chosen source and Windows default device. System audio captures the default playback stream; a silent stream can still produce audio frames.
+- **Subtitles stop after a disconnection:** the app makes bounded 1, 2, and 4-second retries only for network or service failures. Return to settings if it reports a final failure. Real network recovery remains unverified.
+- **Unexpected Azure charges:** pause or close the session and review usage in your own Azure subscription.
+
+Screenshots are pending the Windows UI review. The [subtitle UX checkpoint](docs/feasibility/subtitle-ux-checkpoint.md) records the current interaction checks.
 
 ## Project status
 
 Local automated tests and Windows audio-capture checks exist, including a 30-minute **capture-only** loopback run. They do not establish cloud translation reliability. Before a public `v0.1.0` release, the project still needs real Azure checks for Chinese, English, and Russian; latency; disconnection and recovery; overlay interaction; and at least 30 minutes of end-to-end translation. The [implementation plan](docs/superpowers/plans/2026-10-27-real-time-translation-mvp.md) tracks the remaining work.
 
-The intended license for the first public release is **MIT**. A `LICENSE` file and the rest of the public release documentation will be added before the repository is made public.
+The project uses the [MIT license](LICENSE). See [CONTRIBUTING.md](CONTRIBUTING.md), [SECURITY.md](SECURITY.md), the [changelog](CHANGELOG.md), and the [release checklist](docs/release-checklist.md). A public `v0.1.0` release remains subject to the outstanding live checks and the owner's publication approval.
