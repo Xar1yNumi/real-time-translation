@@ -62,10 +62,10 @@
 
 **Interfaces:** `IMyMemoryTranslator.TranslateAsync(string text, string source, string target, CancellationToken)` returns nonempty translated text or throws a classified `AppFailureException`. The concrete client takes an injected `HttpClient` for deterministic tests.
 
-- [ ] Write `MyMemoryTranslatorTests.cs` with a fake HTTP handler for six `zh/en/ru` directions, UTF-8 encoding, 500-byte rejection, empty/invalid JSON, HTTP 429, service quota response, timeout and cancellation. Verify same-language text is returned without network access.
-- [ ] Run targeted tests to verify RED; implement only the documented `get` endpoint, a finite timeout and safe error messages. Never include `q` or the full URL in exceptions or logs.
-- [ ] Run six harmless live text samples as a separate manual check; record actual status and elapsed time without claiming long-term reliability.
-- [ ] Run Release build, targeted and full tests; commit `feat: translate short text with anonymous service`.
+- [x] Write `MyMemoryTranslatorTests.cs` with a fake HTTP handler for six `zh/en/ru` directions, UTF-8 encoding, 500-byte rejection, empty/invalid JSON, HTTP 429, service quota response, timeout and cancellation. Verify same-language text is returned without network access.
+- [x] Run targeted tests to verify RED; implement only the documented `get` endpoint, a finite timeout and safe error messages. Never include `q` or the full URL in exceptions or logs.
+- [x] Run six harmless live text samples as a separate manual check; record actual status and elapsed time without claiming long-term reliability.
+- [x] Run Release build, targeted and full tests; commit `feat: translate short text with anonymous service`.
 
 ### Task NA5: Real audio-to-subtitle session
 

@@ -9,6 +9,7 @@ public enum AppErrorCode
     RateLimited,
     AudioDeviceUnavailable,
     UnsupportedAudioFormat,
+    InvalidTranslationRequest,
     Unknown
 }
 
@@ -23,6 +24,7 @@ public sealed record AppError(AppErrorCode Code, string UserMessage, bool IsTran
         AppErrorCode.RateLimited => new(code, "Azure 请求过于频繁或额度不足，请稍后重试。", false),
         AppErrorCode.AudioDeviceUnavailable => new(code, "音频设备不可用，请返回设置检查。", false),
         AppErrorCode.UnsupportedAudioFormat => new(code, "音频格式不受支持，请检查设备。", false),
+        AppErrorCode.InvalidTranslationRequest => new(code, "翻译文字或语言无效，请检查后重试。", false),
         _ => new(AppErrorCode.Unknown, "翻译出现问题，请返回设置后重试。", false)
     };
 
