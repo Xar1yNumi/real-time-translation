@@ -76,6 +76,7 @@ public sealed class TranslationCoordinator : IAsyncDisposable
     public event EventHandler<CoordinatorStateChangedEventArgs>? StateChanged;
 
     public event EventHandler<SubtitleChangedEventArgs>? SubtitleChanged;
+    public event EventHandler<TranslationUpdateEventArgs>? WarningReceived;
 
     public async ValueTask StartAsync(
         StartTranslationOptions options,
@@ -393,6 +394,12 @@ public sealed class TranslationCoordinator : IAsyncDisposable
         {
             if (sessionId != activeSessionId || !ReferenceEquals(sender, translationSession))
             {
+                return;
+            }
+
+            if (args.Update is TranslationWarningUpdate)
+            {
+                WarningReceived?.Invoke(this, args);
                 return;
             }
 

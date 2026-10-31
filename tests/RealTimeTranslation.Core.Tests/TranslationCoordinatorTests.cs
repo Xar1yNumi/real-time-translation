@@ -88,6 +88,28 @@ public sealed class TranslationCoordinatorTests
     }
 
     [Fact]
+    public async Task WarningsReachCurrentSessionOnly()
+    {
+        var first = new FakeTranslationSession();
+        var second = new FakeTranslationSession();
+        var provider = new FakeTranslationProvider(first, second);
+        await using var coordinator = new TranslationCoordinator(
+            provider, _ => new FakeAudioSource(), (_, _) => Task.CompletedTask);
+        var warnings = new List<TranslationWarningUpdate>();
+        coordinator.WarningReceived += (_, args) =>
+            warnings.Add(Assert.IsType<TranslationWarningUpdate>(args.Update));
+        await coordinator.StartAsync(Options, TestContext.Current.CancellationToken);
+        first.Emit(new TranslationWarningUpdate("old", 1, AppErrorCode.AudioBacklog));
+
+        await coordinator.PauseAsync(TestContext.Current.CancellationToken);
+        await coordinator.ResumeAsync(Options, TestContext.Current.CancellationToken);
+        first.Emit(new TranslationWarningUpdate("stale", 2, AppErrorCode.AudioBacklog));
+        second.Emit(new TranslationWarningUpdate("new", 1, AppErrorCode.UnsupportedLanguage));
+
+        Assert.Equal(["old", "new"], warnings.Select(update => update.UtteranceId));
+    }
+
+    [Fact]
     public async Task ThreeFailedReconnectsUseOneTwoFourDelaysThenFail()
     {
         var initial = new FakeTranslationSession();

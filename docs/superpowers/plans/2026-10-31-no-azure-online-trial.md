@@ -25,7 +25,7 @@
 | Speech segmentation and WAV framing | `src/RealTimeTranslation.Infrastructure/LocalSpeech/PcmUtteranceSegmenter.cs`, `PcmWaveWriter.cs`, matching tests |
 | Whisper adapter | `src/RealTimeTranslation.Infrastructure/LocalSpeech/WhisperTranscriber.cs`, integration tests |
 | Anonymous translation | `src/RealTimeTranslation.Infrastructure/AnonymousTranslation/MyMemoryTranslator.cs`, matching tests |
-| Provider/session bridge | `src/RealTimeTranslation.Infrastructure/AnonymousTranslation/NoAzureTranslationProvider.cs`, `NoAzureTranslationSession.cs`, matching tests |
+| Provider/session bridge | `src/RealTimeTranslation.Infrastructure/Translation/NoAzureTranslationProvider.cs`, `NoAzureTranslationSession.cs`, matching tests |
 | User-facing default | `src/RealTimeTranslation.Desktop/App.xaml.cs`, `SettingsWindow.xaml`, `ViewModels/SettingsViewModel.cs`, desktop tests |
 | Trial distribution and evidence | `README.md`, `README.zh-CN.md`, `docs/privacy.md`, `docs/release-checklist.md`, `docs/feasibility/no-azure-trial-report.md`, `.github/workflows/release.yml` |
 
@@ -71,9 +71,9 @@
 
 **Interfaces:** `NoAzureTranslationProvider : ITranslationProvider` and `NoAzureTranslationSession : ITranslationSession`. The session consumes existing 16 kHz PCM, sends bounded utterances to NA3, emits `PartialTranscriptUpdate` with recognized text, then emits one `FinalUtteranceUpdate` with NA4's translation and the same `UtteranceId`/`Sequence`.
 
-- [ ] Write lifecycle tests for start/write/stop/dispose, duplicate and stale results, two-item backlog, offline/network errors, quota exhaustion, pause/resume and no Azure calls, using fake transcriber/translator.
-- [ ] Run tests to verify RED; implement a single bounded worker, cancellation on stop and finite waits so capture callbacks never block on model or network work. Map error messages in `AppError` without exposing Azure-only wording in this path.
-- [ ] Run Release build and full tests, inspect memory/backlog under sustained synthetic audio, then commit `feat: stream local speech to online subtitles`.
+- [x] Write lifecycle tests for start/write/stop/dispose, duplicate and stale results, two-item backlog, offline/network errors, quota exhaustion, pause/resume and no Azure calls, using fake transcriber/translator. Existing coordinator tests cover pause/resume; NA5 adds live chain and active-session warning tests.
+- [x] Run tests to verify RED; implement a single bounded worker, cancellation on stop and finite waits so capture callbacks never block on model or network work. Map error messages in `AppError` without exposing Azure-only wording in this path.
+- [x] Run Release build and full tests, inspect memory/backlog under sustained synthetic audio, then commit `feat: stream local speech to online subtitles`.
 
 ### Task NA6: No-key desktop flow and privacy consent
 
