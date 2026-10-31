@@ -1,14 +1,13 @@
-name: release
+name: package review
 
 on:
-  push:
-    tags: ['v*']
+  workflow_dispatch:
 
 jobs:
-  publish:
+  package:
     runs-on: windows-latest
     permissions:
-      contents: write
+      contents: read
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-dotnet@v4
@@ -20,10 +19,14 @@ jobs:
       - run: dotnet publish src/RealTimeTranslation.Desktop/RealTimeTranslation.Desktop.csproj --configuration Release --runtime win-x64 --self-contained true --output artifacts/win-x64 -p:RestoreLockedMode=true
       - shell: pwsh
         run: |
+          Copy-Item LICENSE, README.md, README.zh-CN.md, CONTRIBUTING.md, SECURITY.md, CHANGELOG.md, global.json -Destination artifacts/win-x64
+          Copy-Item docs -Destination artifacts/win-x64 -Recurse
           Compress-Archive -Path artifacts/win-x64/* -DestinationPath artifacts/RealTimeTranslation-win-x64.zip
           (Get-FileHash artifacts/RealTimeTranslation-win-x64.zip -Algorithm SHA256).Hash | Set-Content artifacts/RealTimeTranslation-win-x64.sha256
-      - uses: softprops/action-gh-release@v2
+      - uses: actions/upload-artifact@v4
         with:
-          files: |
+          name: win-x64-review
+          path: |
             artifacts/RealTimeTranslation-win-x64.zip
             artifacts/RealTimeTranslation-win-x64.sha256
+          retention-days: 7
