@@ -44,10 +44,10 @@
 
 **Interfaces:** `PcmUtteranceSegmenter.Push(ReadOnlySpan<byte>)` returns zero or more complete PCM16 mono utterances; `Flush()` emits a final non-silent utterance. `PcmWaveWriter.Wrap16kMono(ReadOnlySpan<byte>)` returns a valid RIFF/WAVE byte array.
 
-- [ ] Write tests in `PcmUtteranceSegmenterTests.cs` and `PcmWaveWriterTests.cs` using synthetic PCM: silence emits nothing, speech plus 600 ms silence emits exactly one utterance, >8 seconds forces a split, `Flush()` clears pending PCM, WAV lengths and `fmt` fields match 16 kHz/16-bit/mono.
-- [ ] Run targeted tests and observe the expected missing-type failures.
-- [ ] Implement a 200 ms pre-roll, 400 ms minimum voiced portion, 600 ms trailing silence and 8-second maximum. Bound pending utterances to two; discard oldest with an observable overrun result. Do not keep unbounded PCM arrays.
-- [ ] Run Release build, targeted and full tests; commit `feat: segment bounded local speech utterances`.
+- [x] Write tests in `PcmUtteranceSegmenterTests.cs` and `PcmWaveWriterTests.cs` using synthetic PCM: silence emits nothing, speech plus 600 ms silence emits exactly one utterance, >8 seconds forces a split, `Flush()` clears pending PCM, WAV lengths and `fmt` fields match 16 kHz/16-bit/mono.
+- [x] Run targeted tests and observe the expected missing-type failures.
+- [x] Implement a 200 ms pre-roll, 400 ms minimum voiced portion, 600 ms trailing silence and 8-second maximum. Keep the segmenter's PCM buffer bounded; NA5 owns the two-item pending-utterance queue and its observable overrun result.
+- [x] Run Release build, targeted and full tests; commit `feat: segment bounded local speech utterances`.
 
 ### Task NA3: Local multilingual transcription
 
