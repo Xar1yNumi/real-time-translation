@@ -1,6 +1,6 @@
 # v0.1.0 Azure 与 Windows 音频技术可行性阶段报告
 
-记录日期：2026-10-29；更新日期：2026-10-30。结论：**实时可行性关卡尚未通过。** 项目负责人于 2026-10-30 明确决定暂缓 Azure 端到端翻译、真实断网恢复和云端连续运行实测，允许继续下一项 MVP 实施任务；这项决定只调整开发顺序，不代表验证通过或允许发布。本报告已补入本机真实 Windows 音频采集及 30 分钟系统回环稳定性证据；Azure 翻译、语音识别及云端连续运行仍未实测。未测数值不视为通过。
+记录日期：2026-10-29；更新日期：2026-10-31。结论：**实时可行性关卡尚未通过。** 项目负责人于 2026-10-30 明确决定暂缓 Azure 端到端翻译、真实断网恢复和云端连续运行实测，允许继续下一项 MVP 实施任务；2026-10-31 又要求补齐实测，但当前没有 Azure 订阅或 Speech 资源。这些决定不代表验证通过或允许发布。本报告已记录本机真实 Windows 音频采集及 30 分钟系统回环稳定性证据；Azure 翻译、语音识别及云端连续运行仍未实测。未测数值不视为通过。
 
 ## 环境与验证范围
 
@@ -89,6 +89,16 @@ NAudio 3.3.0 仍提供设计基线指定的 `WasapiCapture` 和 `WasapiLoopbackC
 Azure Speech SDK 的真实连续识别、三语自动检测、翻译回调顺序和断网恢复均未验证。无数据可支持“翻译延迟达标”或“Azure 端到端 30 分钟稳定”的结论。
 
 ## Azure 实测前置条件与本次尝试
+
+### 2026-10-31 再次尝试
+
+项目负责人确认目前没有 Azure 订阅，也没有可用的 Azure AI Speech 资源。当前进程的 `AZURE_SPEECH_ENDPOINT` 和 `AZURE_SPEECH_KEY` 均未设置；本项目凭据目标 `RealTimeTranslation/AzureSpeech` 仍不存在。尝试通过已授权的浏览器工具访问 `https://portal.azure.com` 时，工具返回保存的用户权限或管理策略阻止网络访问，并明确禁止改用其他浏览器、命令或间接方式绕过。没有创建资源、读取密钥或发起 Azure 请求。
+
+单独运行 `dotnet test tests/RealTimeTranslation.IntegrationTests --configuration Release --no-restore --filter Category=AzureLive`：**1 项跳过、0 项通过、0 项失败**，跳过原因是 Endpoint 和 Key 未配置。中英俄 WAV 测试样本及许可文件也仍不存在。端到端翻译、真实断网恢复和 30 分钟云端运行均未执行；之前的 30 分钟系统回环结果仍只证明本机音频采集。
+
+微软[语音翻译入门文档](https://learn.microsoft.com/en-us/azure/ai-services/speech-service/get-started-speech-translation)列出的前置条件是 Azure 订阅、Speech 资源及其 Key/Endpoint。[官方价格页](https://azure.microsoft.com/en-us/pricing/details/speech/)列有 F0 语音翻译额度，实际可用层级与订阅条件须在创建资源时确认。资源和凭据由项目负责人在自己的 Azure 账号中配置后，方可继续本报告下方的真实测试矩阵；密钥不得写入仓库或报告。
+
+### 2026-10-30 首次检查
 
 2026-10-30 检查结果：当前进程的 `AZURE_SPEECH_ENDPOINT` 与 `AZURE_SPEECH_KEY` 均未设置；本项目默认的 Windows Credential Manager 目标 `RealTimeTranslation/AzureSpeech` 不存在；仓库中尚无三语语音 WAV。尝试通过应用内浏览器访问 `https://portal.azure.com` 时，应用保存的浏览器权限拒绝了该站点的网络访问，并明确禁止换用其他浏览器、命令或间接方式绕过。没有发起 Azure 请求，也没有创建或读取 Azure 资源密钥。
 

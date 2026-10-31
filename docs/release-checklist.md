@@ -1,6 +1,6 @@
 # v0.1.0 release checklist
 
-Status: **not release ready**. The owner deferred Azure live validation on 2026-10-30 to allow MVP development to continue. This does not count as a pass and does not authorize a tag or public release.
+Status: **not release ready**. The owner deferred Azure live validation on 2026-10-30 to allow MVP development to continue, then requested it on 2026-10-31. The owner confirmed there is currently no Azure subscription or Speech resource; the Azure live test was skipped because no Endpoint or Key exists. This does not count as a pass and does not authorize a tag or public release. See the [feasibility report](feasibility/azure-audio-report.md) for the attempted check.
 
 Preflight on 2026-10-31: locked restore, format verification, Release build, and the automated suite passed (103 passed, 4 conditionally skipped). A self-contained `win-x64` folder with the Azure Speech native DLLs was published and zipped locally; the 68,311,154-byte archive had SHA-256 `5120FDC5B24963E614E0E1F712419C5DF216C0B8E88845FB185F6D3805D03CDB`. The archive is ignored by Git and is not a release. Launching the published archive on a separate Windows machine and the live acceptance cases below remain open.
 
