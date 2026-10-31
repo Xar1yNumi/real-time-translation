@@ -27,6 +27,19 @@ public sealed class SubtitleViewModelTests
     }
 
     [Fact]
+    public void FailedStateShowsSafeCategorizedMessage()
+    {
+        var fixture = new Fixture();
+        using var model = fixture.Create();
+
+        fixture.Controller.SetState(SessionState.Failed,
+            AppError.For(AppErrorCode.AuthenticationFailed));
+
+        Assert.Equal(AppError.For(AppErrorCode.AuthenticationFailed).UserMessage,
+            model.ConnectionStatus);
+    }
+
+    [Fact]
     public void SameDetectedAndTargetLanguageShowsNotice()
     {
         var fixture = new Fixture();
@@ -198,10 +211,10 @@ public sealed class SubtitleViewModelTests
         public event EventHandler<CoordinatorStateChangedEventArgs>? StateChanged;
         public event EventHandler<SubtitleChangedEventArgs>? SubtitleChanged;
 
-        public void SetState(SessionState state)
+        public void SetState(SessionState state, AppError? error = null)
         {
             State = state;
-            StateChanged?.Invoke(this, new CoordinatorStateChangedEventArgs(state));
+            StateChanged?.Invoke(this, new CoordinatorStateChangedEventArgs(state, error));
         }
 
         public void EmitSubtitle(SubtitleState state) =>

@@ -100,6 +100,12 @@ internal sealed class FakeTranslationSession : ITranslationSession
         UpdateReceived?.Invoke(this, new TranslationUpdateEventArgs(update));
     }
 
+    public Action<TranslationUpdate> CaptureUpdateCallback()
+    {
+        var callback = UpdateReceived ?? throw new InvalidOperationException("No callback attached.");
+        return update => callback(this, new TranslationUpdateEventArgs(update));
+    }
+
     public Task WaitForFirstWriteAsync() => firstWriteStarted.Task;
 
     public void ReleaseFirstWrite() => releaseFirstWrite.TrySetResult();

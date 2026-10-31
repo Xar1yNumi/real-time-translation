@@ -194,8 +194,10 @@ public sealed class SubtitleViewModel : INotifyPropertyChanged, IDisposable
                 return;
             }
 
-            ConnectionStatus = args.State == SessionState.Connecting && isBusy
-                ? "重新连接中" : GetStatus(args.State);
+            ConnectionStatus = args.State == SessionState.Failed && args.Error is not null
+                ? args.Error.UserMessage
+                : args.State == SessionState.Connecting && isBusy
+                    ? "重新连接中" : GetStatus(args.State);
             OnPropertyChanged(nameof(PauseButtonText));
             RefreshCommands();
         });

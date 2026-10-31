@@ -115,7 +115,7 @@ public sealed class TranslationCoordinatorTests
         };
         await coordinator.StartAsync(Options, CancellationToken.None);
 
-        initial.Emit(new TranslationCanceledUpdate("session", 1, "Network"));
+        initial.Emit(new TranslationCanceledUpdate("session", 1, AppErrorCode.NetworkUnavailable));
         await failed.Task.WaitAsync(
             TimeSpan.FromSeconds(2),
             TestContext.Current.CancellationToken);
@@ -139,7 +139,7 @@ public sealed class TranslationCoordinatorTests
                 await Task.Delay(Timeout.InfiniteTimeSpan, cancellationToken);
             });
         await coordinator.StartAsync(Options, CancellationToken.None);
-        initial.Emit(new TranslationCanceledUpdate("session", 1, "Network"));
+        initial.Emit(new TranslationCanceledUpdate("session", 1, AppErrorCode.NetworkUnavailable));
         await delayEntered.Task.WaitAsync(
             TimeSpan.FromSeconds(2),
             TestContext.Current.CancellationToken);
@@ -180,7 +180,7 @@ public sealed class TranslationCoordinatorTests
         };
         await coordinator.StartAsync(Options, CancellationToken.None);
 
-        initial.Emit(new TranslationCanceledUpdate("session", 1, "Network"));
+        initial.Emit(new TranslationCanceledUpdate("session", 1, AppErrorCode.NetworkUnavailable));
         await recoveredState.Task.WaitAsync(
             TimeSpan.FromSeconds(2), TestContext.Current.CancellationToken);
 
@@ -214,7 +214,7 @@ public sealed class TranslationCoordinatorTests
         };
         await coordinator.StartAsync(Options, CancellationToken.None);
 
-        initial.Emit(new TranslationCanceledUpdate("session", 1, "Network"));
+        initial.Emit(new TranslationCanceledUpdate("session", 1, AppErrorCode.NetworkUnavailable));
         await recoveredState.Task.WaitAsync(
             TimeSpan.FromSeconds(2), TestContext.Current.CancellationToken);
 

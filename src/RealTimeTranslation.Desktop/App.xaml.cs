@@ -10,6 +10,7 @@ using RealTimeTranslation.Desktop.ViewModels;
 using RealTimeTranslation.Infrastructure.Audio;
 using RealTimeTranslation.Infrastructure.Azure;
 using RealTimeTranslation.Infrastructure.Credentials;
+using RealTimeTranslation.Infrastructure.Logging;
 using RealTimeTranslation.Infrastructure.Settings;
 
 namespace RealTimeTranslation.Desktop;
@@ -45,6 +46,11 @@ public partial class App : Application, IDisposable
                     _ => throw new ArgumentOutOfRangeException(nameof(kind))
                 },
                 static (delay, token) => Task.Delay(delay, token));
+            var logger = new SafeRollingFileLogger();
+            coordinator.StateChanged += (_, args) => logger.Log(
+                "session." + args.State.ToString().ToLowerInvariant(),
+                args.Error?.Code ?? AppErrorCode.Unknown,
+                DateTimeOffset.UtcNow);
             var orchestrator = new WindowOrchestrator();
             var model = new SettingsViewModel(
                 new JsonAppSettingsStore(),

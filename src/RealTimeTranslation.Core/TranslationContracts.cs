@@ -53,13 +53,13 @@ public sealed record FinalUtteranceUpdate : TranslationUpdate
 
 public sealed record TranslationCanceledUpdate : TranslationUpdate
 {
-    public TranslationCanceledUpdate(string utteranceId, long sequence, string errorCode)
+    public TranslationCanceledUpdate(string utteranceId, long sequence, AppErrorCode errorCode)
         : base(utteranceId, sequence)
     {
-        ErrorCode = errorCode ?? string.Empty;
+        ErrorCode = errorCode;
     }
 
-    public string ErrorCode { get; }
+    public AppErrorCode ErrorCode { get; }
 }
 
 public sealed class TranslationUpdateEventArgs(TranslationUpdate update) : EventArgs

@@ -50,6 +50,45 @@ public sealed class SettingsViewModelTests
     }
 
     [Fact]
+    public async Task TestConnectionShowsSafeCategorizedFailure()
+    {
+        var fixture = new Fixture();
+        var model = fixture.Create();
+        model.Endpoint = "https://speech.example.com";
+        model.ApiKey = "secret-key";
+        fixture.Tester.Failure = new AppFailureException(
+            AppError.For(AppErrorCode.AuthenticationFailed),
+            new InvalidOperationException("authorization=secret-key"));
+
+        await model.TestConnectionAsync(CancellationToken.None);
+
+        Assert.Equal(AppError.For(AppErrorCode.AuthenticationFailed).UserMessage,
+            model.StatusMessage);
+        Assert.DoesNotContain("secret-key", model.StatusMessage, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task StartFailureShowsAudioCategoryAndReturnsToSettings()
+    {
+        var fixture = new Fixture();
+        var model = fixture.Create();
+        model.Endpoint = "https://speech.example.com";
+        model.ApiKey = "secret-key";
+        await model.TestConnectionAsync(CancellationToken.None);
+        fixture.StartFailure = new AppFailureException(
+            AppError.For(AppErrorCode.AudioDeviceUnavailable),
+            new InvalidOperationException("sensitive-original"));
+
+        await model.StartTranslationAsync(CancellationToken.None);
+
+        Assert.Equal(AppError.For(AppErrorCode.AudioDeviceUnavailable).UserMessage,
+            model.StatusMessage);
+        Assert.Null(model.ActiveOptions);
+        Assert.Equal(1, fixture.Windows.SettingsCount);
+        Assert.DoesNotContain("sensitive-original", model.StatusMessage, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task EditingKeyDuringConnectionTestDoesNotSaveUntestedValue()
     {
         var fixture = new Fixture();
@@ -266,6 +305,7 @@ public sealed class SettingsViewModelTests
         public FakeWindowOrchestrator Windows { get; } = new();
         public int StartCount { get; private set; }
         public bool RequireWindowBeforeStart { get; set; }
+        public Exception? StartFailure { get; set; }
 
         public SettingsViewModel Create() => new(
             Settings,
@@ -276,6 +316,11 @@ public sealed class SettingsViewModelTests
                 if (RequireWindowBeforeStart && Windows.ShowCount == 0)
                 {
                     throw new InvalidOperationException("Audio started without subtitle window.");
+                }
+
+                if (StartFailure is not null)
+                {
+                    throw StartFailure;
                 }
 
                 StartCount++;
@@ -348,9 +393,10 @@ public sealed class SettingsViewModelTests
     private sealed class FakeWindowOrchestrator : IWindowOrchestrator
     {
         public int ShowCount { get; private set; }
+        public int SettingsCount { get; private set; }
         public bool CanShowSubtitles { get; set; } = true;
         public void ShowSubtitles() => ShowCount++;
-        public void ShowSettings() { }
+        public void ShowSettings() => SettingsCount++;
         public void ShutdownApplication() { }
     }
 }

@@ -248,6 +248,10 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
             credentialVerified = true;
             StatusMessage = "连接测试通过，凭据已保存。";
         }
+        catch (AppFailureException exception) when (!cancellationToken.IsCancellationRequested)
+        {
+            StatusMessage = exception.Error.UserMessage;
+        }
         catch (Exception) when (!cancellationToken.IsCancellationRequested)
         {
             StatusMessage = "连接测试失败，请检查 Endpoint、密钥和网络。";
@@ -295,6 +299,16 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
             await startTranslation(options, cancellationToken);
             sessionStarted = true;
             StatusMessage = "翻译已启动。";
+        }
+        catch (AppFailureException exception) when (!cancellationToken.IsCancellationRequested)
+        {
+            ActiveOptions = null;
+            if (subtitlesShown)
+            {
+                windowOrchestrator.ShowSettings();
+            }
+
+            StatusMessage = exception.Error.UserMessage;
         }
         catch (Exception) when (!cancellationToken.IsCancellationRequested)
         {

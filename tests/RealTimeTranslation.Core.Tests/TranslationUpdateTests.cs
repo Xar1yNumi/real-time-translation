@@ -9,7 +9,8 @@ public sealed class TranslationUpdateTests
     {
         Assert.Throws<ArgumentException>(() => new PartialTranscriptUpdate(" ", 1, "Hello"));
         Assert.Throws<ArgumentException>(() => new FinalUtteranceUpdate("", 1, "Hello", "你好", "en-US"));
-        Assert.Throws<ArgumentException>(() => new TranslationCanceledUpdate("", 1, "Canceled"));
+        Assert.Throws<ArgumentException>(() => new TranslationCanceledUpdate(
+            "", 1, AppErrorCode.Unknown));
     }
 
     [Fact]

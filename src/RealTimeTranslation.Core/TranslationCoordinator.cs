@@ -21,11 +21,13 @@ public sealed record StartTranslationOptions(
 
 public sealed class CoordinatorStateChangedEventArgs(
     SessionState state,
-    string? message = null) : EventArgs
+    AppError? error = null) : EventArgs
 {
     public SessionState State { get; } = state;
 
-    public string? Message { get; } = message;
+    public AppError? Error { get; } = error;
+
+    public string? Message => Error?.UserMessage;
 }
 
 public sealed class SubtitleChangedEventArgs(SubtitleState state) : EventArgs
@@ -45,12 +47,16 @@ public sealed class TranslationCoordinator : IAsyncDisposable
     private CancellationTokenSource? resourceCancellation;
     private IAudioCaptureSource? audioSource;
     private ITranslationSession? translationSession;
+    private EventHandler<TranslationUpdateEventArgs>? translationUpdateHandler;
+    private EventHandler<AudioFrameEventArgs>? audioFrameHandler;
+    private EventHandler<AudioSourceFaultEventArgs>? audioFaultHandler;
+    private Guid activeSessionId;
     private BoundedAudioFrameBuffer? audioBuffer;
     private Task? audioPump;
     private Task? reconnectTask;
     private StartTranslationOptions? currentOptions;
     private SubtitleState subtitleState = SubtitleState.Empty;
-    private int reconnectScheduled;
+    private Guid reconnectSessionId;
     private bool disposed;
 
     public TranslationCoordinator(
@@ -93,11 +99,24 @@ public sealed class TranslationCoordinator : IAsyncDisposable
             await StartResourcesAsync(options, runCancellation.Token).ConfigureAwait(false);
             SetState(SessionState.Listening);
         }
-        catch
+        catch (Exception exception)
         {
-            await StopResourcesAsync().ConfigureAwait(false);
-            SetState(SessionState.Failed);
-            throw;
+            try
+            {
+                await StopResourcesAsync().ConfigureAwait(false);
+            }
+            catch (Exception)
+            {
+                // StopResourcesAsync attempts every cleanup; keep the original startup failure.
+            }
+            var error = AppError.FromException(exception);
+            SetState(SessionState.Failed, error);
+            if (exception is AppFailureException)
+            {
+                throw;
+            }
+
+            throw new AppFailureException(error, exception);
         }
         finally
         {
@@ -165,8 +184,10 @@ public sealed class TranslationCoordinator : IAsyncDisposable
         StartTranslationOptions options,
         CancellationToken cancellationToken)
     {
+        var sessionId = Guid.NewGuid();
         lock (subtitleGate)
         {
+            activeSessionId = sessionId;
             subtitleState = SubtitleState.Empty;
             SubtitleChanged?.Invoke(this, new SubtitleChangedEventArgs(subtitleState));
         }
@@ -176,22 +197,52 @@ public sealed class TranslationCoordinator : IAsyncDisposable
         translationSession = await provider.CreateSessionAsync(
             new TranslationSessionOptions(options.Endpoint, options.ApiKey, options.TargetLanguage),
             resourceToken).ConfigureAwait(false);
-        audioSource = audioFactory(options.Source);
+        try
+        {
+            audioSource = audioFactory(options.Source);
+        }
+        catch (Exception exception)
+        {
+            throw new AppFailureException(AudioErrorFrom(exception), exception);
+        }
+
         audioBuffer = new BoundedAudioFrameBuffer();
 
-        translationSession.UpdateReceived += OnTranslationUpdate;
-        audioSource.FrameAvailable += OnAudioFrame;
-        audioSource.Faulted += OnAudioFault;
+        translationUpdateHandler = (sender, args) => OnTranslationUpdate(sessionId, sender, args);
+        audioFrameHandler = (sender, args) => OnAudioFrame(sessionId, sender, args);
+        audioFaultHandler = (sender, args) => OnAudioFault(sessionId, sender, args);
+        translationSession.UpdateReceived += translationUpdateHandler;
+        audioSource.FrameAvailable += audioFrameHandler;
+        audioSource.Faulted += audioFaultHandler;
 
         await translationSession.StartAsync(resourceToken).ConfigureAwait(false);
         audioPump = PumpAudioAsync(audioBuffer, translationSession, resourceToken);
-        await audioSource.StartAsync(resourceToken).ConfigureAwait(false);
+        try
+        {
+            await audioSource.StartAsync(resourceToken).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException) when (resourceToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (Exception exception)
+        {
+            throw new AppFailureException(AudioErrorFrom(exception), exception);
+        }
     }
+
+    private static AppError AudioErrorFrom(Exception exception) => AppError.For(
+        exception is NotSupportedException
+            ? AppErrorCode.UnsupportedAudioFormat
+            : AppErrorCode.AudioDeviceUnavailable);
 
     private async Task StopResourcesAsync()
     {
         var localAudio = audioSource;
         var localSession = translationSession;
+        var localTranslationHandler = translationUpdateHandler;
+        var localFrameHandler = audioFrameHandler;
+        var localFaultHandler = audioFaultHandler;
         var localBuffer = audioBuffer;
         var localPump = audioPump;
         var localCancellation = resourceCancellation;
@@ -200,20 +251,34 @@ public sealed class TranslationCoordinator : IAsyncDisposable
         lock (subtitleGate)
         {
             translationSession = null;
+            activeSessionId = Guid.Empty;
         }
+        translationUpdateHandler = null;
+        audioFrameHandler = null;
+        audioFaultHandler = null;
         audioBuffer = null;
         audioPump = null;
         resourceCancellation = null;
 
         if (localAudio is not null)
         {
-            localAudio.FrameAvailable -= OnAudioFrame;
-            localAudio.Faulted -= OnAudioFault;
+            if (localFrameHandler is not null)
+            {
+                localAudio.FrameAvailable -= localFrameHandler;
+            }
+
+            if (localFaultHandler is not null)
+            {
+                localAudio.Faulted -= localFaultHandler;
+            }
         }
 
         if (localSession is not null)
         {
-            localSession.UpdateReceived -= OnTranslationUpdate;
+            if (localTranslationHandler is not null)
+            {
+                localSession.UpdateReceived -= localTranslationHandler;
+            }
         }
 
         var failures = new List<Exception>();
@@ -297,27 +362,36 @@ public sealed class TranslationCoordinator : IAsyncDisposable
         }
     }
 
-    private void OnAudioFrame(object? sender, AudioFrameEventArgs args)
-    {
-        if (ReferenceEquals(sender, audioSource))
-        {
-            audioBuffer?.TryWrite(args.Frame);
-        }
-    }
-
-    private void OnAudioFault(object? sender, AudioSourceFaultEventArgs args)
-    {
-        if (ReferenceEquals(sender, audioSource))
-        {
-            SetState(SessionState.Failed, "Audio device unavailable.");
-        }
-    }
-
-    private void OnTranslationUpdate(object? sender, TranslationUpdateEventArgs args)
+    private void OnAudioFrame(Guid sessionId, object? sender, AudioFrameEventArgs args)
     {
         lock (subtitleGate)
         {
-            if (!ReferenceEquals(sender, translationSession))
+            if (sessionId == activeSessionId && ReferenceEquals(sender, audioSource))
+            {
+                audioBuffer?.TryWrite(args.Frame);
+            }
+        }
+    }
+
+    private void OnAudioFault(Guid sessionId, object? sender, AudioSourceFaultEventArgs args)
+    {
+        lock (subtitleGate)
+        {
+            if (sessionId != activeSessionId || !ReferenceEquals(sender, audioSource))
+            {
+                return;
+            }
+        }
+
+        _ = Task.Run(() => FailSessionAsync(sessionId, AudioErrorFrom(args.Exception)));
+    }
+
+    private void OnTranslationUpdate(
+        Guid sessionId, object? sender, TranslationUpdateEventArgs args)
+    {
+        lock (subtitleGate)
+        {
+            if (sessionId != activeSessionId || !ReferenceEquals(sender, translationSession))
             {
                 return;
             }
@@ -330,27 +404,88 @@ public sealed class TranslationCoordinator : IAsyncDisposable
             }
         }
 
-        ScheduleReconnect((ITranslationSession)sender!);
+        var error = AppError.For(((TranslationCanceledUpdate)args.Update).ErrorCode);
+        if (error.IsTransient)
+        {
+            ScheduleReconnect(sessionId, (ITranslationSession)sender!);
+        }
+        else
+        {
+            _ = Task.Run(() => FailSessionAsync(sessionId, error));
+        }
     }
 
-    private void ScheduleReconnect(ITranslationSession failedSession)
+    private async Task FailSessionAsync(Guid sessionId, AppError error)
     {
-        if (Interlocked.CompareExchange(ref reconnectScheduled, 1, 0) != 0)
+        CancellationTokenSource? cancellation;
+        lock (subtitleGate)
         {
-            return;
+            if (sessionId != activeSessionId)
+            {
+                return;
+            }
+            cancellation = runCancellation;
         }
 
-        reconnectTask = ReconnectAsync(failedSession);
+        try
+        {
+            cancellation?.Cancel();
+        }
+        catch (ObjectDisposedException)
+        {
+            // A concurrent pause or stop has already disposed this session's token.
+        }
+
+        await lifecycleGate.WaitAsync().ConfigureAwait(false);
+        try
+        {
+            if (sessionId != activeSessionId)
+            {
+                return;
+            }
+
+            try
+            {
+                await StopResourcesAsync().ConfigureAwait(false);
+            }
+            catch (Exception)
+            {
+                // All available resources are still cleaned up before the error is shown.
+            }
+
+            DisposeRunCancellation();
+            SetState(SessionState.Failed, error);
+        }
+        finally
+        {
+            lifecycleGate.Release();
+        }
     }
 
-    private async Task ReconnectAsync(ITranslationSession failedSession)
+    private void ScheduleReconnect(Guid sessionId, ITranslationSession failedSession)
+    {
+        lock (subtitleGate)
+        {
+            if (sessionId != activeSessionId || reconnectSessionId == sessionId)
+            {
+                return;
+            }
+
+            reconnectSessionId = sessionId;
+        }
+
+        reconnectTask = Task.Run(() => ReconnectAsync(sessionId, failedSession));
+    }
+
+    private async Task ReconnectAsync(Guid sessionId, ITranslationSession failedSession)
     {
         try
         {
             await lifecycleGate.WaitAsync().ConfigureAwait(false);
             try
             {
-                if (!ReferenceEquals(failedSession, translationSession)
+                if (sessionId != activeSessionId
+                    || !ReferenceEquals(failedSession, translationSession)
                     || currentOptions is null
                     || runCancellation is null
                     || runCancellation.IsCancellationRequested)
@@ -383,7 +518,7 @@ public sealed class TranslationCoordinator : IAsyncDisposable
                     {
                         return;
                     }
-                    catch (Exception) when (!runToken.IsCancellationRequested)
+                    catch (Exception exception) when (!runToken.IsCancellationRequested)
                     {
                         try
                         {
@@ -393,10 +528,18 @@ public sealed class TranslationCoordinator : IAsyncDisposable
                         {
                             // Cleanup proceeds through every resource before the next retry.
                         }
+
+                        var error = AppError.FromException(exception);
+                        if (!error.IsTransient)
+                        {
+                            SetState(SessionState.Failed, error);
+                            return;
+                        }
                     }
                 }
 
-                SetState(SessionState.Failed, "翻译连接中断");
+                SetState(SessionState.Failed,
+                    AppError.For(AppErrorCode.NetworkUnavailable));
             }
             finally
             {
@@ -410,12 +553,19 @@ public sealed class TranslationCoordinator : IAsyncDisposable
         {
             if (runCancellation?.IsCancellationRequested == false)
             {
-                SetState(SessionState.Failed, "翻译连接中断");
+                SetState(SessionState.Failed,
+                    AppError.For(AppErrorCode.Unknown));
             }
         }
         finally
         {
-            Interlocked.Exchange(ref reconnectScheduled, 0);
+            lock (subtitleGate)
+            {
+                if (reconnectSessionId == sessionId)
+                {
+                    reconnectSessionId = Guid.Empty;
+                }
+            }
         }
     }
 
@@ -425,12 +575,15 @@ public sealed class TranslationCoordinator : IAsyncDisposable
         runCancellation = null;
         currentOptions = null;
         reconnectTask = null;
-        Interlocked.Exchange(ref reconnectScheduled, 0);
+        lock (subtitleGate)
+        {
+            reconnectSessionId = Guid.Empty;
+        }
     }
 
-    private void SetState(SessionState state, string? message = null)
+    private void SetState(SessionState state, AppError? error = null)
     {
         State = state;
-        StateChanged?.Invoke(this, new CoordinatorStateChangedEventArgs(state, message));
+        StateChanged?.Invoke(this, new CoordinatorStateChangedEventArgs(state, error));
     }
 }

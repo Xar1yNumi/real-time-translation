@@ -220,10 +220,15 @@ public sealed class AzureTranslationSession : ITranslationSession
 
     private void OnCanceled(object? sender, TranslationRecognitionCanceledEventArgs args)
     {
+        if (args.Reason == CancellationReason.EndOfStream)
+        {
+            return;
+        }
+
         Raise(new TranslationCanceledUpdate(
             "session",
             Interlocked.Increment(ref nextSequence),
-            $"{args.Reason}: {args.ErrorCode}"));
+            AzureErrorMapper.Map(args.ErrorCode)));
     }
 
     private long SequenceFor(string resultId) =>

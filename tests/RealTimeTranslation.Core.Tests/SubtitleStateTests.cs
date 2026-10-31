@@ -56,7 +56,7 @@ public sealed class SubtitleStateTests
     {
         var state = SubtitleState.Empty
             .Apply(new FinalUtteranceUpdate("result-1", 1, "Hello", "你好", "en-US"))
-            .Apply(new TranslationCanceledUpdate("session", 2, "Network"));
+            .Apply(new TranslationCanceledUpdate("session", 2, AppErrorCode.NetworkUnavailable));
 
         Assert.Equal("Hello", state.OriginalText);
         Assert.Equal("你好", state.TranslatedText);

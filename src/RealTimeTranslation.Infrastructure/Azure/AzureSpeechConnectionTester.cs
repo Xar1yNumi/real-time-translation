@@ -17,7 +17,7 @@ public sealed class AzureSpeechConnectionTester : ITranslationConnectionTester
         if (!Uri.TryCreate(endpoint, UriKind.Absolute, out var uri)
             || uri.Scheme != Uri.UriSchemeHttps)
         {
-            throw new ArgumentException("Azure Speech endpoint must be an HTTPS URI.", nameof(endpoint));
+            throw new AppFailureException(AppError.For(AppErrorCode.InvalidEndpoint));
         }
 
         ArgumentException.ThrowIfNullOrWhiteSpace(apiKey);
@@ -35,8 +35,8 @@ public sealed class AzureSpeechConnectionTester : ITranslationConnectionTester
         var sessionStarted = new TaskCompletionSource(
             TaskCreationOptions.RunContinuationsAsynchronously);
         recognizer.SessionStarted += (_, _) => sessionStarted.TrySetResult();
-        recognizer.Canceled += (_, _) => sessionStarted.TrySetException(
-            new InvalidOperationException("Azure Speech rejected the connection."));
+        recognizer.Canceled += (_, args) => sessionStarted.TrySetException(
+            new AppFailureException(AppError.For(AzureErrorMapper.Map(args.ErrorCode))));
 
         try
         {
