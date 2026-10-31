@@ -27,6 +27,24 @@ public sealed class WhisperModelStoreTests
     }
 
     [Fact]
+    public async Task CacheCheckNeverDownloadsAndRejectsCorruptModel()
+    {
+        using var directory = new TemporaryDirectory();
+        var expected = Encoding.UTF8.GetBytes("verified model");
+        var handler = new StubHandler(_ => throw new InvalidOperationException("Network was called."));
+        using var client = new HttpClient(handler);
+        using var store = new WhisperModelStore(client, directory.Path, Descriptor(expected));
+
+        Assert.Null(await store.VerifyCachedAsync(TestContext.Current.CancellationToken));
+        var path = Path.Combine(directory.Path, ModelFileName);
+        await File.WriteAllBytesAsync(path, expected, TestContext.Current.CancellationToken);
+        Assert.Equal(path, await store.VerifyCachedAsync(TestContext.Current.CancellationToken));
+        await File.WriteAllTextAsync(path, "corrupt", TestContext.Current.CancellationToken);
+        Assert.Null(await store.VerifyCachedAsync(TestContext.Current.CancellationToken));
+        Assert.Equal(0, handler.RequestCount);
+    }
+
+    [Fact]
     public async Task ValidDownloadIsInstalledWithoutPartialFile()
     {
         using var directory = new TemporaryDirectory();

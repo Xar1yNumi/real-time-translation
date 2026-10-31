@@ -1,6 +1,7 @@
 ﻿using System.Configuration;
 using System.Data;
 using System.Diagnostics;
+using System.Net.Http;
 using System.Threading;
 using System.Windows;
 using NAudio.CoreAudioApi;
@@ -8,10 +9,10 @@ using RealTimeTranslation.Core;
 using RealTimeTranslation.Desktop.Services;
 using RealTimeTranslation.Desktop.ViewModels;
 using RealTimeTranslation.Infrastructure.Audio;
-using RealTimeTranslation.Infrastructure.Azure;
-using RealTimeTranslation.Infrastructure.Credentials;
+using RealTimeTranslation.Infrastructure.LocalSpeech;
 using RealTimeTranslation.Infrastructure.Logging;
 using RealTimeTranslation.Infrastructure.Settings;
+using RealTimeTranslation.Infrastructure.Translation;
 
 namespace RealTimeTranslation.Desktop;
 
@@ -20,6 +21,8 @@ public partial class App : Application, IDisposable
     private Mutex? singleton;
     private TranslationCoordinator? coordinator;
     private SubtitleViewModel? subtitleViewModel;
+    private HttpClient? httpClient;
+    private WhisperModelStore? modelStore;
     private bool ownsSingleton;
     private bool disposed;
 
@@ -37,8 +40,10 @@ public partial class App : Application, IDisposable
 
         try
         {
+            httpClient = new HttpClient();
+            modelStore = new WhisperModelStore(httpClient);
             coordinator = new TranslationCoordinator(
-                new AzureTranslationProvider(),
+                new NoAzureTranslationProvider(modelStore, new MyMemoryTranslator(httpClient)),
                 kind => kind switch
                 {
                     AudioSourceKind.SystemAudio => new SystemLoopbackAudioSource(),
@@ -54,8 +59,7 @@ public partial class App : Application, IDisposable
             var orchestrator = new WindowOrchestrator();
             var model = new SettingsViewModel(
                 new JsonAppSettingsStore(),
-                new WindowsCredentialStore(),
-                new AzureSpeechConnectionTester(),
+                modelStore,
                 coordinator.StartAsync,
                 orchestrator,
                 GetCurrentDeviceName);
@@ -73,8 +77,9 @@ public partial class App : Application, IDisposable
             await model.InitializeAsync(CancellationToken.None);
             subtitles.RestorePosition();
         }
-        catch (Exception)
+        catch (Exception exception)
         {
+            Trace.TraceError("Desktop startup failed: {0}", exception.GetType().Name);
             MessageBox.Show("无法启动实时翻译设置窗口。", "实时翻译",
                 MessageBoxButton.OK, MessageBoxImage.Error);
             Shutdown();
@@ -117,6 +122,8 @@ public partial class App : Application, IDisposable
         }
         finally
         {
+            modelStore?.Dispose();
+            httpClient?.Dispose();
             if (ownsSingleton)
             {
                 singleton?.ReleaseMutex();

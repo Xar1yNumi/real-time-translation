@@ -45,6 +45,7 @@ public sealed class SubtitleViewModel : INotifyPropertyChanged, IDisposable
         closeCommand = new AsyncCommand(() => CloseAsync(CancellationToken.None), () => !isBusy);
         coordinator.StateChanged += OnStateChanged;
         coordinator.SubtitleChanged += OnSubtitleChanged;
+        coordinator.WarningReceived += OnWarningReceived;
     }
 
     public event PropertyChangedEventHandler? PropertyChanged;
@@ -183,6 +184,7 @@ public sealed class SubtitleViewModel : INotifyPropertyChanged, IDisposable
         disposed = true;
         coordinator.StateChanged -= OnStateChanged;
         coordinator.SubtitleChanged -= OnSubtitleChanged;
+        coordinator.WarningReceived -= OnWarningReceived;
         GC.SuppressFinalize(this);
     }
 
@@ -223,20 +225,34 @@ public sealed class SubtitleViewModel : INotifyPropertyChanged, IDisposable
             IsOriginalPartial = args.State.IsOriginalPartial;
         });
 
+    private void OnWarningReceived(object? sender, TranslationUpdateEventArgs args) =>
+        dispatcher.Invoke(() =>
+        {
+            if (!disposed && args.Update is TranslationWarningUpdate warning)
+            {
+                ConnectionStatus = AppError.For(warning.ErrorCode).UserMessage;
+            }
+        });
+
     private static bool IsSameLanguage(string detected, TargetLanguage target) => target switch
     {
         TargetLanguage.SimplifiedChinese =>
-            string.Equals(detected, "zh-CN", StringComparison.OrdinalIgnoreCase),
+            string.Equals(detected, "zh-CN", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(detected, "zh", StringComparison.OrdinalIgnoreCase),
         TargetLanguage.English =>
-            string.Equals(detected, "en-US", StringComparison.OrdinalIgnoreCase),
+            string.Equals(detected, "en-US", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(detected, "en", StringComparison.OrdinalIgnoreCase),
         TargetLanguage.Russian =>
-            string.Equals(detected, "ru-RU", StringComparison.OrdinalIgnoreCase),
+            string.Equals(detected, "ru-RU", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(detected, "ru", StringComparison.OrdinalIgnoreCase),
         _ => false
     };
 
-    private static string GetStatus(SessionState state) => state switch
+    private string GetStatus(SessionState state) => state switch
     {
         SessionState.Connecting => "连接中",
+        SessionState.Listening when activeOptions()?.Endpoint == string.Empty =>
+            "本机识别／联网翻译中",
         SessionState.Listening => "正在聆听",
         SessionState.Paused => "已暂停",
         SessionState.Reconnecting => "重新连接中",

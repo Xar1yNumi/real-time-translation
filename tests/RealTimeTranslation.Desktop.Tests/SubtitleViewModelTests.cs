@@ -55,6 +55,59 @@ public sealed class SubtitleViewModelTests
     }
 
     [Fact]
+    public void ShortLanguageCodeAlsoShowsSameLanguageNotice()
+    {
+        var fixture = new Fixture();
+        using var model = fixture.Create();
+        fixture.Controller.EmitSubtitle(SubtitleState.Empty.Apply(new FinalUtteranceUpdate(
+            "utterance-1", 1, "你好", "你好", "zh")));
+
+        Assert.Equal("与目标语言相同", model.TranslatedText);
+    }
+
+    [Fact]
+    public void BacklogWarningIsVisibleWithoutClearingSubtitle()
+    {
+        var fixture = new Fixture();
+        using var model = fixture.Create();
+        fixture.Controller.EmitSubtitle(SubtitleState.Empty.Apply(new FinalUtteranceUpdate(
+            "utterance-1", 1, "Hello", "你好", "en")));
+
+        fixture.Controller.EmitWarning(new TranslationWarningUpdate(
+            "dropped", 2, AppErrorCode.AudioBacklog));
+
+        Assert.Equal(AppError.For(AppErrorCode.AudioBacklog).UserMessage, model.ConnectionStatus);
+        Assert.Equal("你好", model.TranslatedText);
+    }
+
+    [Theory]
+    [InlineData(AppErrorCode.NetworkUnavailable)]
+    [InlineData(AppErrorCode.RateLimited)]
+    public void OnlineTranslationFailureIsVisible(AppErrorCode code)
+    {
+        var fixture = new Fixture();
+        using var model = fixture.Create();
+
+        fixture.Controller.EmitWarning(new TranslationWarningUpdate("failed", 1, code));
+
+        Assert.Equal(AppError.For(code).UserMessage, model.ConnectionStatus);
+    }
+
+    [Fact]
+    public void NoAzureListeningStateNamesLocalRecognitionAndOnlineTranslation()
+    {
+        var fixture = new Fixture();
+        fixture.ActiveOptions = new StartTranslationOptions(
+            "", "", AudioSourceKind.SystemAudio, TargetLanguage.SimplifiedChinese);
+        fixture.Controller.SetState(SessionState.Listening);
+
+        using var model = fixture.Create();
+
+        Assert.Contains("本机识别", model.ConnectionStatus);
+        Assert.Contains("联网翻译", model.ConnectionStatus);
+    }
+
+    [Fact]
     public async Task PauseCallsCoordinatorOnceAndChangesLabelToResume()
     {
         var fixture = new Fixture();
@@ -210,6 +263,7 @@ public sealed class SubtitleViewModelTests
         public TaskCompletionSource? ResumeGate { get; set; }
         public event EventHandler<CoordinatorStateChangedEventArgs>? StateChanged;
         public event EventHandler<SubtitleChangedEventArgs>? SubtitleChanged;
+        public event EventHandler<TranslationUpdateEventArgs>? WarningReceived;
 
         public void SetState(SessionState state, AppError? error = null)
         {
@@ -219,6 +273,9 @@ public sealed class SubtitleViewModelTests
 
         public void EmitSubtitle(SubtitleState state) =>
             SubtitleChanged?.Invoke(this, new SubtitleChangedEventArgs(state));
+
+        public void EmitWarning(TranslationWarningUpdate warning) =>
+            WarningReceived?.Invoke(this, new TranslationUpdateEventArgs(warning));
 
         public ValueTask PauseAsync(CancellationToken cancellationToken)
         {

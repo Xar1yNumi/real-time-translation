@@ -3,15 +3,10 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:core="clr-namespace:RealTimeTranslation.Core;assembly=RealTimeTranslation.Core"
         Title="实时翻译 · 设置"
-        Width="640" Height="720" MinWidth="520" MinHeight="620"
+        Width="640" Height="690" MinWidth="520" MinHeight="600"
         WindowStartupLocation="CenterScreen"
         Background="#F7F9FC" FontFamily="Microsoft YaHei UI" FontSize="14">
     <Window.Resources>
-        <Style TargetType="TextBox">
-            <Setter Property="Height" Value="38" />
-            <Setter Property="Padding" Value="10,6" />
-            <Setter Property="Margin" Value="0,7,0,0" />
-        </Style>
         <Style TargetType="Button">
             <Setter Property="MinHeight" Value="38" />
             <Setter Property="Padding" Value="14,6" />
@@ -24,24 +19,24 @@
                        Margin="0,7,0,0" Foreground="#526277" TextWrapping="Wrap" />
 
             <Border Background="#E8F0FB" CornerRadius="10" Padding="15" Margin="0,22,0,20">
-                <TextBlock Text="翻译期间音频会发送到 Azure。软件本身免费开源，Azure 服务可能产生费用；只有点击“开始翻译”后才会采集音频。"
+                <TextBlock Text="运行时需要联网。音频仅在本机识别；确认的文字会发送给 MyMemory。匿名额度每天 5,000 字符。只有点击“开始翻译”后才会采集音频。"
                            Foreground="#243B60" TextWrapping="Wrap" />
             </Border>
 
-            <TextBlock Text="Azure Endpoint" FontWeight="SemiBold" Foreground="#17243B" />
-            <TextBox Text="{Binding Endpoint, UpdateSourceTrigger=PropertyChanged}"
-                     ToolTip="从 Azure Speech 资源的“密钥和终结点”页面复制"
-                     AutomationProperties.Name="Azure Endpoint" />
+            <TextBlock Text="本机语音模型" FontWeight="SemiBold" Foreground="#17243B" />
+            <TextBlock Text="首次使用需下载约 190 MB 的中文、英语和俄语语音识别模型。"
+                       Margin="0,7,0,0" Foreground="#526277" TextWrapping="Wrap" />
+            <Button Content="下载或校验语音模型" Command="{Binding DownloadModelCommand}"
+                    HorizontalAlignment="Left" Margin="0,12,0,0" />
+            <ProgressBar Minimum="0" Maximum="100" Height="12" Margin="0,12,0,0"
+                         Value="{Binding ModelProgress, Mode=OneWay}" AutomationProperties.Name="模型下载进度" />
 
-            <TextBlock Text="API Key" FontWeight="SemiBold" Foreground="#17243B" Margin="0,18,0,0" />
-            <PasswordBox x:Name="ApiKeyBox" Height="38" Padding="10,6" Margin="0,7,0,0"
-                         PasswordChanged="OnPasswordChanged"
-                         AutomationProperties.Name="Azure API Key" />
-            <StackPanel Orientation="Horizontal" Margin="0,12,0,0">
-                <Button Content="测试连接" Command="{Binding TestConnectionCommand}" />
-                <Button Content="删除已保存凭据" Command="{Binding DeleteCredentialCommand}"
-                        Margin="10,0,0,0" />
-            </StackPanel>
+            <CheckBox IsChecked="{Binding HasTextSharingConsent, Mode=TwoWay}"
+                      Margin="0,20,0,0" VerticalContentAlignment="Center"
+                      AutomationProperties.Name="同意将识别文字发送到 MyMemory">
+                <TextBlock Text="我了解识别后的文字会发送到 MyMemory，用于获取译文。"
+                           TextWrapping="Wrap" />
+            </CheckBox>
 
             <TextBlock Text="音源（一次只能选一个）" FontWeight="SemiBold"
                        Foreground="#17243B" Margin="0,25,0,0" />

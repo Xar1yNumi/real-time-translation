@@ -5,6 +5,8 @@ namespace RealTimeTranslation.Infrastructure.LocalSpeech;
 
 public interface IWhisperModelStore : IDisposable
 {
+    Task<string?> VerifyCachedAsync(CancellationToken cancellationToken);
+
     Task<string> EnsureAvailableAsync(
         IProgress<double>? progress,
         CancellationToken cancellationToken);
@@ -104,6 +106,48 @@ public sealed class WhisperModelStore : IWhisperModelStore
                 && timeout.IsCancellationRequested)
             {
                 throw new TimeoutException("Speech model download timed out.", exception);
+            }
+            finally
+            {
+                if (acquired)
+                {
+                    gate.Release();
+                }
+            }
+        }
+        finally
+        {
+            lock (lifecycleSync)
+            {
+                activeCalls--;
+                if (disposed && activeCalls == 0)
+                {
+                    drained.TrySetResult(true);
+                }
+            }
+        }
+    }
+
+    public async Task<string?> VerifyCachedAsync(CancellationToken cancellationToken)
+    {
+        lock (lifecycleSync)
+        {
+            ObjectDisposedException.ThrowIf(disposed, this);
+            activeCalls++;
+        }
+
+        try
+        {
+            using var linked = CancellationTokenSource.CreateLinkedTokenSource(
+                cancellationToken, shutdown.Token);
+            var acquired = false;
+            try
+            {
+                await gate.WaitAsync(linked.Token).ConfigureAwait(false);
+                acquired = true;
+                var path = Path.Combine(modelDirectory, ModelFileName);
+                return await MatchesDescriptorAsync(path, linked.Token).ConfigureAwait(false)
+                    ? path : null;
             }
             finally
             {

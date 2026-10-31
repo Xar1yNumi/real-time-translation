@@ -3,20 +3,23 @@ using System.Runtime.CompilerServices;
 using System.Windows.Input;
 using RealTimeTranslation.Core;
 using RealTimeTranslation.Desktop.Services;
+using RealTimeTranslation.Infrastructure.LocalSpeech;
 
 namespace RealTimeTranslation.Desktop.ViewModels;
 
 public sealed class SettingsViewModel : INotifyPropertyChanged
 {
     private readonly IAppSettingsStore settingsStore;
-    private readonly ICredentialStore credentialStore;
-    private readonly ITranslationConnectionTester connectionTester;
+    private readonly ICredentialStore? credentialStore;
+    private readonly ITranslationConnectionTester? connectionTester;
+    private readonly IWhisperModelStore? modelStore;
     private readonly Func<StartTranslationOptions, CancellationToken, ValueTask> startTranslation;
     private readonly IWindowOrchestrator windowOrchestrator;
     private readonly Func<AudioSourceKind, string> deviceNameProvider;
     private readonly AsyncCommand testConnectionCommand;
     private readonly AsyncCommand startTranslationCommand;
     private readonly AsyncCommand deleteCredentialCommand;
+    private readonly AsyncCommand downloadModelCommand;
     private string endpoint = string.Empty;
     private string apiKey = string.Empty;
     private string currentDeviceName = string.Empty;
@@ -29,6 +32,9 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
     private bool credentialVerified;
     private bool isBusy;
     private bool sessionStarted;
+    private bool modelReady;
+    private bool hasTextSharingConsent;
+    private double modelProgress;
 
     public SettingsViewModel(
         IAppSettingsStore settingsStore,
@@ -37,21 +43,48 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
         Func<StartTranslationOptions, CancellationToken, ValueTask> startTranslation,
         IWindowOrchestrator windowOrchestrator,
         Func<AudioSourceKind, string> deviceNameProvider)
+        : this(settingsStore, credentialStore, connectionTester, null,
+            startTranslation, windowOrchestrator, deviceNameProvider)
+    {
+    }
+
+    public SettingsViewModel(
+        IAppSettingsStore settingsStore,
+        IWhisperModelStore modelStore,
+        Func<StartTranslationOptions, CancellationToken, ValueTask> startTranslation,
+        IWindowOrchestrator windowOrchestrator,
+        Func<AudioSourceKind, string> deviceNameProvider)
+        : this(settingsStore, null, null, modelStore,
+            startTranslation, windowOrchestrator, deviceNameProvider)
+    {
+    }
+
+    private SettingsViewModel(
+        IAppSettingsStore settingsStore,
+        ICredentialStore? credentialStore,
+        ITranslationConnectionTester? connectionTester,
+        IWhisperModelStore? modelStore,
+        Func<StartTranslationOptions, CancellationToken, ValueTask> startTranslation,
+        IWindowOrchestrator windowOrchestrator,
+        Func<AudioSourceKind, string> deviceNameProvider)
     {
         this.settingsStore = settingsStore ?? throw new ArgumentNullException(nameof(settingsStore));
-        this.credentialStore = credentialStore ?? throw new ArgumentNullException(nameof(credentialStore));
-        this.connectionTester = connectionTester ?? throw new ArgumentNullException(nameof(connectionTester));
+        this.credentialStore = credentialStore;
+        this.connectionTester = connectionTester;
+        this.modelStore = modelStore;
         this.startTranslation = startTranslation ?? throw new ArgumentNullException(nameof(startTranslation));
         this.windowOrchestrator = windowOrchestrator ?? throw new ArgumentNullException(nameof(windowOrchestrator));
         this.deviceNameProvider = deviceNameProvider ?? throw new ArgumentNullException(nameof(deviceNameProvider));
         currentDeviceName = this.deviceNameProvider(selectedAudioSource);
         testConnectionCommand = new AsyncCommand(() => TestConnectionAsync(CancellationToken.None),
-            () => !IsBusy && !sessionStarted && HasValidEndpoint
+            () => !IsNoAzureMode && !IsBusy && !sessionStarted && HasValidEndpoint
                 && !string.IsNullOrWhiteSpace(ApiKey));
         startTranslationCommand = new AsyncCommand(() => StartTranslationAsync(CancellationToken.None),
             () => CanStart);
         deleteCredentialCommand = new AsyncCommand(() => DeleteCredentialAsync(CancellationToken.None),
-            () => !IsBusy && !sessionStarted && !string.IsNullOrEmpty(ApiKey));
+            () => !IsNoAzureMode && !IsBusy && !sessionStarted && !string.IsNullOrEmpty(ApiKey));
+        downloadModelCommand = new AsyncCommand(() => DownloadModelAsync(CancellationToken.None),
+            () => IsNoAzureMode && !IsBusy && !sessionStarted && !ModelReady);
     }
 
     public event PropertyChangedEventHandler? PropertyChanged;
@@ -158,17 +191,52 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
         }
     }
 
-    public bool CanStart => !IsBusy && !sessionStarted && credentialVerified
+    public bool IsNoAzureMode => modelStore is not null;
+
+    public bool ModelReady
+    {
+        get => modelReady;
+        private set
+        {
+            if (SetField(ref modelReady, value))
+            {
+                RefreshCommands();
+            }
+        }
+    }
+
+    public double ModelProgress
+    {
+        get => modelProgress;
+        private set => SetField(ref modelProgress, value);
+    }
+
+    public bool HasTextSharingConsent
+    {
+        get => hasTextSharingConsent;
+        set
+        {
+            if (SetField(ref hasTextSharingConsent, value))
+            {
+                RefreshCommands();
+            }
+        }
+    }
+
+    public bool CanStart => !IsBusy && !sessionStarted
         && windowOrchestrator.CanShowSubtitles
-        && HasValidEndpoint && !string.IsNullOrWhiteSpace(ApiKey)
         && Enum.IsDefined(SelectedAudioSource)
-        && Enum.IsDefined(SelectedTargetLanguage);
+        && Enum.IsDefined(SelectedTargetLanguage)
+        && (IsNoAzureMode
+            ? ModelReady && HasTextSharingConsent
+            : credentialVerified && HasValidEndpoint && !string.IsNullOrWhiteSpace(ApiKey));
 
     public ICommand TestConnectionCommand => testConnectionCommand;
 
     public ICommand StartTranslationCommand => startTranslationCommand;
 
     public ICommand DeleteCredentialCommand => deleteCredentialCommand;
+    public ICommand DownloadModelCommand => downloadModelCommand;
 
     public StartTranslationOptions? ActiveOptions { get; private set; }
 
@@ -190,7 +258,7 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
             var settings = await settingsStore.LoadAsync(cancellationToken);
             if (settings is not null)
             {
-                Endpoint = settings.Endpoint;
+                Endpoint = IsNoAzureMode ? string.Empty : settings.Endpoint;
                 SelectedAudioSource = settings.AudioSource;
                 SelectedTargetLanguage = settings.TargetLanguage;
                 subtitleLeft = settings.SubtitleLeft;
@@ -199,10 +267,20 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
                     || subtitleLeft != 0 || subtitleTop != 0;
             }
 
-            ApiKey = await credentialStore.ReadApiKeyAsync(cancellationToken) ?? string.Empty;
-            credentialVerified = HasValidEndpoint && !string.IsNullOrWhiteSpace(ApiKey);
-            StatusMessage = credentialVerified ? "配置已加载。"
-                : "请填写 Azure Endpoint 和 API Key，并测试连接。";
+            if (modelStore is not null)
+            {
+                ModelReady = await modelStore.VerifyCachedAsync(cancellationToken) is not null;
+                ModelProgress = ModelReady ? 100 : 0;
+                StatusMessage = ModelReady ? "本机语音模型已就绪。请确认文字发送说明。"
+                    : "请先下载语音模型，再确认文字发送说明。";
+            }
+            else
+            {
+                ApiKey = await credentialStore!.ReadApiKeyAsync(cancellationToken) ?? string.Empty;
+                credentialVerified = HasValidEndpoint && !string.IsNullOrWhiteSpace(ApiKey);
+                StatusMessage = credentialVerified ? "配置已加载。"
+                    : "请填写 Azure Endpoint 和 API Key，并测试连接。";
+            }
         }
         catch (Exception) when (!cancellationToken.IsCancellationRequested)
         {
@@ -215,8 +293,44 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
         }
     }
 
+    public async Task DownloadModelAsync(CancellationToken cancellationToken)
+    {
+        if (modelStore is null || IsBusy || sessionStarted || ModelReady)
+        {
+            return;
+        }
+
+        IsBusy = true;
+        ModelProgress = 0;
+        StatusMessage = "正在下载并校验本机语音模型…";
+        try
+        {
+            var progress = new Progress<double>(value => ModelProgress = Math.Clamp(value * 100, 0, 100));
+            await modelStore.EnsureAvailableAsync(progress, cancellationToken);
+            ModelReady = true;
+            ModelProgress = 100;
+            StatusMessage = "语音模型已就绪。请确认文字发送说明。";
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            StatusMessage = "语音模型下载已取消。";
+        }
+        catch (Exception)
+        {
+            StatusMessage = "语音模型下载或校验失败，请检查网络和磁盘空间后重试。";
+        }
+        finally
+        {
+            IsBusy = false;
+        }
+    }
+
     public async Task TestConnectionAsync(CancellationToken cancellationToken)
     {
+        if (connectionTester is null || credentialStore is null)
+        {
+            return;
+        }
         if (IsBusy || sessionStarted || !HasValidEndpoint || string.IsNullOrWhiteSpace(ApiKey))
         {
             StatusMessage = "请填写有效的 HTTPS Endpoint 和 API Key。";
@@ -271,9 +385,9 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
         }
 
         IsBusy = true;
-        StatusMessage = "正在连接翻译服务…";
-        var selectedEndpoint = Endpoint;
-        var selectedKey = ApiKey;
+        StatusMessage = IsNoAzureMode ? "正在启动本机识别与联网翻译…" : "正在连接翻译服务…";
+        var selectedEndpoint = IsNoAzureMode ? string.Empty : Endpoint;
+        var selectedKey = IsNoAzureMode ? string.Empty : ApiKey;
         var selectedSource = SelectedAudioSource;
         var selectedTarget = SelectedTargetLanguage;
         var subtitlesShown = false;
@@ -283,9 +397,11 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
                 selectedEndpoint, selectedSource, selectedTarget, subtitleLeft, subtitleTop,
                 hasSavedSubtitlePosition),
                 cancellationToken);
-            if (Endpoint != selectedEndpoint || ApiKey != selectedKey
+            if ((!IsNoAzureMode && (Endpoint != selectedEndpoint || ApiKey != selectedKey
+                    || !credentialVerified))
+                || (IsNoAzureMode && (!ModelReady || !HasTextSharingConsent))
                 || SelectedAudioSource != selectedSource || SelectedTargetLanguage != selectedTarget
-                || !credentialVerified || !windowOrchestrator.CanShowSubtitles)
+                || !windowOrchestrator.CanShowSubtitles)
             {
                 StatusMessage = "配置已更改，请重新点击开始翻译。";
                 return;
@@ -329,7 +445,7 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
 
     public async Task DeleteCredentialAsync(CancellationToken cancellationToken)
     {
-        if (IsBusy || sessionStarted)
+        if (credentialStore is null || IsBusy || sessionStarted)
         {
             return;
         }
@@ -364,7 +480,8 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
         }
 
         await settingsStore.SaveAsync(new AppSettings(
-            Endpoint, SelectedAudioSource, SelectedTargetLanguage, left, top, true),
+            IsNoAzureMode ? string.Empty : Endpoint,
+            SelectedAudioSource, SelectedTargetLanguage, left, top, true),
             cancellationToken);
         subtitleLeft = left;
         subtitleTop = top;
@@ -400,6 +517,7 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
         testConnectionCommand.RaiseCanExecuteChanged();
         startTranslationCommand.RaiseCanExecuteChanged();
         deleteCredentialCommand.RaiseCanExecuteChanged();
+        downloadModelCommand.RaiseCanExecuteChanged();
     }
 
     private sealed class AsyncCommand(Func<Task> execute, Func<bool> canExecute) : ICommand

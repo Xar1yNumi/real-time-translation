@@ -3,7 +3,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="实时翻译字幕" Width="760" Height="176"
         WindowStyle="None" AllowsTransparency="True" Background="Transparent"
-        Topmost="True" ShowInTaskbar="False" ShowActivated="False"
+        Topmost="True" ShowInTaskbar="True" ShowActivated="False"
         ResizeMode="NoResize" SourceInitialized="OnSourceInitialized">
     <Window.Resources>
         <BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter" />

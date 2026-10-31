@@ -10,7 +10,6 @@ public partial class SubtitleWindow : Window
 {
     private const int ExtendedStyleIndex = -20;
     private const long NoActivateStyle = 0x08000000;
-    private const long ToolWindowStyle = 0x00000080;
     private readonly SettingsViewModel settings;
 
     public SubtitleWindow(SettingsViewModel settings)
@@ -38,7 +37,7 @@ public partial class SubtitleWindow : Window
         var handle = new WindowInteropHelper(this).Handle;
         var styles = GetWindowLongPtr(handle, ExtendedStyleIndex).ToInt64();
         SetWindowLongPtr(handle, ExtendedStyleIndex,
-            new IntPtr(styles | NoActivateStyle | ToolWindowStyle));
+            new IntPtr(styles | NoActivateStyle));
     }
 
     private void OnMouseEnter(object sender, MouseEventArgs args)

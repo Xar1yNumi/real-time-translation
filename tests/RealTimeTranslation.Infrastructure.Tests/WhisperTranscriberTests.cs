@@ -106,6 +106,9 @@ public sealed class WhisperTranscriberTests
 
     private sealed class FakeModelStore : IWhisperModelStore
     {
+        public Task<string?> VerifyCachedAsync(CancellationToken cancellationToken) =>
+            Task.FromResult<string?>("validated-model-path");
+
         public Task<string> EnsureAvailableAsync(IProgress<double>? progress, CancellationToken cancellationToken)
         {
             cancellationToken.ThrowIfCancellationRequested();

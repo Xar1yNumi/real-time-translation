@@ -79,9 +79,9 @@
 
 **Interfaces:** `SettingsViewModel` exposes model state/progress, `DownloadModelCommand`, `HasTextSharingConsent`, and `CanStart` based on valid model, consent, selected source and target. `App.xaml.cs` constructs the no-Azure provider. Azure fields are absent from the short-trial settings view.
 
-- [ ] Add desktop tests proving Start disabled before model and consent, enabled afterward without Endpoint/Key, Start calls the new provider, model/download/network errors are visible, and stop restores settings without retaining old subtitle text.
-- [ ] Run targeted desktop tests to verify RED; implement WPF copy: “音频仅在本机识别；确认的文字会发送到 MyMemory；匿名额度每天 5,000 字符”. Show download progress and a clear quota/offline state.
-- [ ] Run Release build and full tests; launch from the desktop build and visually verify controls and closed-window cleanup; commit `feat: start no-Azure translation from desktop`.
+- [x] Add desktop tests proving Start disabled before model and consent, enabled afterward without Endpoint/Key, Start calls the new provider, model/download/network errors are visible, and stop restores settings without retaining old subtitle text.
+- [x] Run targeted desktop tests to verify RED; implement WPF copy: “音频仅在本机识别；确认的文字会发送到 MyMemory；匿名额度每天 5,000 字符”. Show download progress and a clear quota/offline state.
+- [x] Run Release build and full tests; launch from the desktop build and visually verify controls and closed-window cleanup; commit `feat: start no-Azure translation from desktop`.
 
 ### Task NA7: Short-trial package and actual acceptance
 

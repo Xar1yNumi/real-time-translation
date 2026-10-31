@@ -300,6 +300,9 @@ public sealed class NoAzureTranslationSessionTests
     {
         public int Calls { get; private set; }
 
+        public Task<string?> VerifyCachedAsync(CancellationToken cancellationToken) =>
+            Task.FromResult<string?>("validated-path");
+
         public Task<string> EnsureAvailableAsync(
             IProgress<double>? progress, CancellationToken cancellationToken)
         {
