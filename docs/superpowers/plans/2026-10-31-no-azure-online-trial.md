@@ -35,10 +35,10 @@
 
 **Interfaces:** `IWhisperModelStore.EnsureAvailableAsync(IProgress<double>?, CancellationToken)` returns a validated absolute model path. The store takes `HttpClient`, a model directory and an internal `WhisperModelDescriptor(Uri Source, long Length, string Sha256)` so tests use a temporary directory, a tiny known payload and an injected handler; production uses the pinned descriptor in the design.
 
-- [ ] Write tests in `tests/RealTimeTranslation.Infrastructure.Tests/WhisperModelStoreTests.cs` proving: a matching cached model causes zero HTTP calls; an interrupted download leaves no final model; wrong length or SHA-256 is rejected; a valid response is atomically installed.
-- [ ] Run `dotnet test tests/RealTimeTranslation.Infrastructure.Tests --configuration Release --filter WhisperModelStoreTests` and verify the new tests fail because the store does not exist.
-- [ ] Add centrally pinned `Whisper.net` and `Whisper.net.Runtime` version `1.9.1`, and implement the store with the model URL, length and SHA-256 from the design. Store weights under `%LOCALAPPDATA%/RealTimeTranslation/models`; use a temporary file and `File.Move` only after hashing.
-- [ ] Run locked restore, Release build, targeted tests and full suite; review that no model file is staged, then commit `feat: verify and cache local speech model`.
+- [x] Write tests in `tests/RealTimeTranslation.Infrastructure.Tests/WhisperModelStoreTests.cs` proving: a matching cached model causes zero HTTP calls; an interrupted download leaves no final model; wrong length or SHA-256 is rejected; a valid response is atomically installed.
+- [x] Run `dotnet test tests/RealTimeTranslation.Infrastructure.Tests --configuration Release --filter WhisperModelStoreTests` and verify the new tests fail because the store does not exist.
+- [x] Add centrally pinned `Whisper.net` and `Whisper.net.Runtime` version `1.9.1`, and implement the store with the model URL, length and SHA-256 from the design. Store weights under `%LOCALAPPDATA%/RealTimeTranslation/models`; use a temporary file and `File.Move` only after hashing.
+- [x] Run locked restore, Release build, targeted tests and full suite; review that no model file is staged, then commit `feat: verify and cache local speech model`.
 
 ### Task NA2: Bounded utterance segmentation
 

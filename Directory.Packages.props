@@ -5,6 +5,8 @@
   <ItemGroup>
     <PackageVersion Include="Microsoft.CognitiveServices.Speech" Version="1.53.0" />
     <PackageVersion Include="NAudio" Version="3.3.0" />
+    <PackageVersion Include="Whisper.net" Version="1.9.1" />
+    <PackageVersion Include="Whisper.net.Runtime" Version="1.9.1" />
     <PackageVersion Include="xunit.v3" Version="4.0.2" />
   </ItemGroup>
 </Project>
