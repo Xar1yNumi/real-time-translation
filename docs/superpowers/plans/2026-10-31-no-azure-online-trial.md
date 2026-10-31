@@ -53,10 +53,10 @@
 
 **Interfaces:** `IWhisperTranscriber.TranscribeAsync(ReadOnlyMemory<byte> pcm16Mono, CancellationToken)` returns `TranscribedUtterance(Text, LanguageCode)` or a classified unsupported/empty result. `WhisperTranscriber` loads only the validated path from NA1 and uses `WhisperFactory` with automatic language detection.
 
-- [ ] Add tests for empty input, unsupported detected language and cancellation using an injected internal inference adapter; add a real English WAV integration test with a reproducible licensed fixture, guarded by the downloaded model's presence.
-- [ ] Run tests to see the missing adapter behavior; implement a single serialized Whisper processor so concurrent audio cannot corrupt native state. Convert each segment with NA2's WAV writer; allow only `zh`, `en`, `ru`.
-- [ ] Run the real English fixture on this PC and record original text, detected language and elapsed time. If the CPU runtime cannot keep pace with short phrases, measure before selecting an accelerated runtime.
-- [ ] Run Release build and full suite; commit `feat: transcribe local multilingual speech`.
+- [x] Add tests for empty input, unsupported detected language and cancellation using an injected internal inference adapter; add a real English WAV integration test with a reproducible licensed fixture, guarded by the downloaded model's presence.
+- [x] Run tests to see the missing adapter behavior; implement a single serialized Whisper processor so concurrent audio cannot corrupt native state. Convert each segment with NA2's WAV writer; allow only `zh`, `en`, `ru`.
+- [x] Run the real English fixture on this PC and record original text, detected language and elapsed time. If the CPU runtime cannot keep pace with short phrases, measure before selecting an accelerated runtime.
+- [x] Run Release build and full suite; commit `feat: transcribe local multilingual speech`.
 
 ### Task NA4: Anonymous HTTPS translation client
 
