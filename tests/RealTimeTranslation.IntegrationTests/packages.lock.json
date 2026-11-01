@@ -200,12 +200,21 @@
           "xunit.v3.runner.common": "[4.0.2]"
         }
       },
+      "realtimetranslation.azure": {
+        "type": "Project",
+        "dependencies": {
+          "Microsoft.CognitiveServices.Speech": "[1.53.0, )",
+          "NAudio": "[3.3.0, )",
+          "RealTimeTranslation.Core": "[1.0.0, )"
+        }
+      },
       "realtimetranslation.core": {
         "type": "Project"
       },
       "realtimetranslation.feasibility": {
         "type": "Project",
         "dependencies": {
+          "RealTimeTranslation.Azure": "[1.0.0, )",
           "RealTimeTranslation.Core": "[1.0.0, )",
           "RealTimeTranslation.Infrastructure": "[1.0.0, )"
         }
@@ -213,7 +222,6 @@
       "realtimetranslation.infrastructure": {
         "type": "Project",
         "dependencies": {
-          "Microsoft.CognitiveServices.Speech": "[1.53.0, )",
           "NAudio": "[3.3.0, )",
           "RealTimeTranslation.Core": "[1.0.0, )",
           "Whisper.net": "[1.9.1, )",

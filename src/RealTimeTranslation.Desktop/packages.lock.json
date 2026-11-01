@@ -2,21 +2,6 @@
   "version": 2,
   "dependencies": {
     "net10.0-windows7.0": {
-      "Azure.Core": {
-        "type": "Transitive",
-        "resolved": "1.44.1",
-        "contentHash": "YyznXLQZCregzHvioip07/BkzjuWNXogJEVz9T5W6TwjNr17ax41YGzYMptlo2G10oLCuVPoyva62y0SIRDixg==",
-        "dependencies": {
-          "Microsoft.Bcl.AsyncInterfaces": "6.0.0",
-          "System.ClientModel": "1.1.0",
-          "System.Memory.Data": "6.0.0"
-        }
-      },
-      "Microsoft.Bcl.AsyncInterfaces": {
-        "type": "Transitive",
-        "resolved": "6.0.0",
-        "contentHash": "UcSjPsst+DfAdJGVDsu346FX0ci0ah+lw3WRtn18NUwEqRt70HaOQ7lI72vy3+1LxtqI3T5GWwV39rQSrCzAeg=="
-      },
       "Microsoft.Extensions.AI.Abstractions": {
         "type": "Transitive",
         "resolved": "10.2.0",
@@ -55,19 +40,6 @@
           "NAudio.Midi": "3.3.0"
         }
       },
-      "System.ClientModel": {
-        "type": "Transitive",
-        "resolved": "1.1.0",
-        "contentHash": "UocOlCkxLZrG2CKMAAImPcldJTxeesHnHGHwhJ0pNlZEvEXcWKuQvVOER2/NiOkJGRJk978SNdw3j6/7O9H1lg==",
-        "dependencies": {
-          "System.Memory.Data": "1.0.2"
-        }
-      },
-      "System.Memory.Data": {
-        "type": "Transitive",
-        "resolved": "6.0.0",
-        "contentHash": "ntFHArH3I4Lpjf5m4DCXQHJuGwWPNVJPaAvM95Jy/u+2Yzt2ryiyIN04LAogkjP9DeRcEOiviAjQotfmPq/FrQ=="
-      },
       "System.Numerics.Tensors": {
         "type": "Transitive",
         "resolved": "9.0.0",
@@ -84,20 +56,10 @@
       "realtimetranslation.infrastructure": {
         "type": "Project",
         "dependencies": {
-          "Microsoft.CognitiveServices.Speech": "[1.53.0, )",
           "NAudio": "[3.3.0, )",
           "RealTimeTranslation.Core": "[1.0.0, )",
           "Whisper.net": "[1.9.1, )",
           "Whisper.net.Runtime": "[1.9.1, )"
-        }
-      },
-      "Microsoft.CognitiveServices.Speech": {
-        "type": "CentralTransitive",
-        "requested": "[1.53.0, )",
-        "resolved": "1.53.0",
-        "contentHash": "NJg99R1UXUn5SwSiOtV+iwzjf/cejr0Wo7YW7lXTcicfF6gwfDJmYEns33iTzIYcUB8k4XY2lyT7CFuzVV801g==",
-        "dependencies": {
-          "Azure.Core": "1.44.1"
         }
       },
       "NAudio": {
@@ -131,16 +93,6 @@
         }
       }
     },
-    "net10.0-windows7.0/win-x64": {
-      "Microsoft.CognitiveServices.Speech": {
-        "type": "CentralTransitive",
-        "requested": "[1.53.0, )",
-        "resolved": "1.53.0",
-        "contentHash": "NJg99R1UXUn5SwSiOtV+iwzjf/cejr0Wo7YW7lXTcicfF6gwfDJmYEns33iTzIYcUB8k4XY2lyT7CFuzVV801g==",
-        "dependencies": {
-          "Azure.Core": "1.44.1"
-        }
-      }
-    }
+    "net10.0-windows7.0/win-x64": {}
   }
 }

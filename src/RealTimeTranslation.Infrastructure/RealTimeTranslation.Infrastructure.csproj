@@ -5,7 +5,6 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="Microsoft.CognitiveServices.Speech" />
     <PackageReference Include="NAudio" />
     <PackageReference Include="Whisper.net" />
     <PackageReference Include="Whisper.net.Runtime" />

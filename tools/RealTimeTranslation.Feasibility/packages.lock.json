@@ -78,13 +78,20 @@
         "resolved": "1.9.1",
         "contentHash": "Ut5tZyCUwXMVdThoLvdvQ7GyLwjRMreR/p3LuMJvRiXidQ2AXxx2Tv8UOGtMxvL395AC3+IkHdN/kMfd+EPSEw=="
       },
+      "realtimetranslation.azure": {
+        "type": "Project",
+        "dependencies": {
+          "Microsoft.CognitiveServices.Speech": "[1.53.0, )",
+          "NAudio": "[3.3.0, )",
+          "RealTimeTranslation.Core": "[1.0.0, )"
+        }
+      },
       "realtimetranslation.core": {
         "type": "Project"
       },
       "realtimetranslation.infrastructure": {
         "type": "Project",
         "dependencies": {
-          "Microsoft.CognitiveServices.Speech": "[1.53.0, )",
           "NAudio": "[3.3.0, )",
           "RealTimeTranslation.Core": "[1.0.0, )",
           "Whisper.net": "[1.9.1, )",
