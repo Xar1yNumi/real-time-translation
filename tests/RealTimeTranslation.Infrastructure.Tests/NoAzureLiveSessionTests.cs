@@ -31,7 +31,7 @@ public sealed class NoAzureLiveSessionTests
             new Uri("https://huggingface.co/ggerganov/whisper.cpp/resolve/c521a4b02f422512d734391fdf08bb08c0862f68/ggml-small-q5_1.bin"),
             190_085_487,
             "ae85e4a935d7a567bd102fe55afc16bb595bdb618e11b2fc7591bc08120411bb"));
-        var provider = new NoAzureTranslationProvider(store, new MyMemoryTranslator(client));
+        await using var provider = new NoAzureTranslationProvider(store, new MyMemoryTranslator(client));
         await using var session = await provider.CreateSessionAsync(
             new TranslationSessionOptions("", "", TargetLanguage.SimplifiedChinese),
             TestContext.Current.CancellationToken);
@@ -105,7 +105,7 @@ public sealed class NoAzureLiveSessionTests
             new Uri("https://huggingface.co/ggerganov/whisper.cpp/resolve/c521a4b02f422512d734391fdf08bb08c0862f68/ggml-small-q5_1.bin"),
             190_085_487,
             "ae85e4a935d7a567bd102fe55afc16bb595bdb618e11b2fc7591bc08120411bb"));
-        var provider = new NoAzureTranslationProvider(store, new MyMemoryTranslator(client));
+        await using var provider = new NoAzureTranslationProvider(store, new MyMemoryTranslator(client));
         await using var session = await provider.CreateSessionAsync(
             new TranslationSessionOptions("", "", targetLanguage),
             TestContext.Current.CancellationToken);

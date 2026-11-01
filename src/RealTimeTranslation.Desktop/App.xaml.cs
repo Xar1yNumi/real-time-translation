@@ -42,8 +42,10 @@ public partial class App : Application, IDisposable
         {
             httpClient = new HttpClient();
             modelStore = new WhisperModelStore(httpClient);
+            var noAzureProvider = new NoAzureTranslationProvider(
+                modelStore, new MyMemoryTranslator(httpClient));
             coordinator = new TranslationCoordinator(
-                new NoAzureTranslationProvider(modelStore, new MyMemoryTranslator(httpClient)),
+                noAzureProvider,
                 kind => kind switch
                 {
                     AudioSourceKind.SystemAudio => new SystemLoopbackAudioSource(),
@@ -63,6 +65,13 @@ public partial class App : Application, IDisposable
                 coordinator.StartAsync,
                 orchestrator,
                 GetCurrentDeviceName);
+            model.PropertyChanged += (_, args) =>
+            {
+                if (args.PropertyName == nameof(SettingsViewModel.ModelReady) && model.ModelReady)
+                {
+                    _ = Task.Run(() => PrepareRecognizerAsync(noAzureProvider));
+                }
+            };
             var window = new SettingsWindow { DataContext = model };
             subtitleViewModel = new SubtitleViewModel(
                 new CoordinatorSessionController(coordinator),
@@ -83,6 +92,19 @@ public partial class App : Application, IDisposable
             MessageBox.Show("无法启动实时翻译设置窗口。", "实时翻译",
                 MessageBoxButton.OK, MessageBoxImage.Error);
             Shutdown();
+        }
+    }
+
+    private static async Task PrepareRecognizerAsync(NoAzureTranslationProvider provider)
+    {
+        try
+        {
+            await provider.PrepareAsync(CancellationToken.None);
+        }
+        catch (Exception exception)
+        {
+            Trace.TraceWarning("Background recognizer preparation failed: {0}",
+                exception.GetType().Name);
         }
     }
 

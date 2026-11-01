@@ -7,6 +7,7 @@ The default Windows trial includes these components:
 | [NAudio](https://github.com/naudio/NAudio) | 3.3.0 | MIT; Copyright © Mark Heath 2026 |
 | [Whisper.net](https://github.com/sandrohanea/whisper.net) | 1.9.1 | MIT; Copyright (c) 2024 sandrohanea |
 | [Whisper.net.Runtime / whisper.cpp](https://github.com/ggml-org/whisper.cpp) | 1.9.1 | MIT; Copyright (c) 2023-2026 The ggml authors |
+| [Whisper.net.Runtime.Vulkan / whisper.cpp](https://github.com/sandrohanea/whisper.net) | 1.9.1 | MIT; Vulkan accelerated runtime of whisper.cpp |
 
 The MIT permission notice for these components follows. Each upstream repository contains its own license and further attribution information.
 

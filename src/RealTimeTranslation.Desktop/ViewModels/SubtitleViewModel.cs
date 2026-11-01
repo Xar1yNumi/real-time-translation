@@ -299,6 +299,8 @@ public sealed class SubtitleViewModel : INotifyPropertyChanged, IDisposable
 
     private string GetStatus(SessionState state) => state switch
     {
+        SessionState.Connecting when activeOptions()?.Endpoint == string.Empty =>
+            "正在准备识别引擎（首次约需 20 秒）",
         SessionState.Connecting => "连接中",
         SessionState.Listening when activeOptions()?.Endpoint == string.Empty =>
             "本机识别／联网翻译中",

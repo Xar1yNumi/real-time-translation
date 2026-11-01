@@ -13,6 +13,7 @@ public sealed class NoAzureTranslationSession : ITranslationSession
     private readonly CancellationTokenSource shutdown = new();
     private readonly PcmUtteranceSegmenter segmenter = new();
     private readonly IWhisperTranscriber transcriber;
+    private readonly bool ownsTranscriber;
     private readonly IMyMemoryTranslator translator;
     private readonly Func<TimeSpan, CancellationToken, Task> delayAsync;
     private readonly string targetCode;
@@ -25,7 +26,7 @@ public sealed class NoAzureTranslationSession : ITranslationSession
         IWhisperTranscriber transcriber,
         IMyMemoryTranslator translator,
         TargetLanguage targetLanguage)
-        : this(transcriber, translator, targetLanguage, Task.Delay)
+        : this(transcriber, translator, targetLanguage, Task.Delay, true)
     {
     }
 
@@ -34,8 +35,19 @@ public sealed class NoAzureTranslationSession : ITranslationSession
         IMyMemoryTranslator translator,
         TargetLanguage targetLanguage,
         Func<TimeSpan, CancellationToken, Task> delayAsync)
+        : this(transcriber, translator, targetLanguage, delayAsync, true)
+    {
+    }
+
+    internal NoAzureTranslationSession(
+        IWhisperTranscriber transcriber,
+        IMyMemoryTranslator translator,
+        TargetLanguage targetLanguage,
+        Func<TimeSpan, CancellationToken, Task> delayAsync,
+        bool ownsTranscriber)
     {
         this.transcriber = transcriber ?? throw new ArgumentNullException(nameof(transcriber));
+        this.ownsTranscriber = ownsTranscriber;
         this.translator = translator ?? throw new ArgumentNullException(nameof(translator));
         this.delayAsync = delayAsync ?? throw new ArgumentNullException(nameof(delayAsync));
         targetCode = targetLanguage switch
@@ -158,7 +170,10 @@ public sealed class NoAzureTranslationSession : ITranslationSession
     private async Task DisposeCoreAsync()
     {
         await StopAsync(CancellationToken.None).ConfigureAwait(false);
-        await transcriber.DisposeAsync().ConfigureAwait(false);
+        if (ownsTranscriber)
+        {
+            await transcriber.DisposeAsync().ConfigureAwait(false);
+        }
         lock (sync)
         {
             state = 3;

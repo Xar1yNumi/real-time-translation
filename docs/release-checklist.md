@@ -1,6 +1,6 @@
 # Short-trial review and public release checklist
 
-Status: **owner review package, not a public `v0.1.0` release**. The default desktop app runs without Azure credentials. Anonymous MyMemory service limits and measured CPU latency constrain this short trial. The old Azure cloud acceptance remains deferred until the owner decides whether to use Azure.
+Status: **owner review package, not a public `v0.1.0` release**. The default desktop app runs without Azure credentials. Anonymous MyMemory service limits and phrase-boundary delays constrain this short trial. The old Azure cloud acceptance remains deferred until the owner decides whether to use Azure.
 
 ## Review package
 
@@ -8,16 +8,19 @@ Status: **owner review package, not a public `v0.1.0` release**. The default des
 - [x] English, Chinese, and Russian audio have produced recognized source text and real online translations on this PC. See the [trial report](feasibility/no-azure-trial-report.md).
 - [x] Six text translation directions returned live HTTPS translations without credentials.
 - [x] The no-Azure desktop publish does not contain Azure Speech SDK binaries.
-- [x] Run locked restore, format, Release build, and the complete automated suite after the Azure adapter split and network-warning fix: 170 passed, 11 conditional skips, zero failures.
+- [x] Run locked restore, format, Release build, and the complete automated suite after the subtitle-history and Vulkan revisions: 173 passed, 11 conditional skips, zero failures.
 - [x] Produce the self-contained `win-x64` ZIP and SHA-256 in desktop `artifacts/`, extract it, launch the extracted app, and observe a real English-to-Chinese floating subtitle.
 - [x] Verify every relative link included in the archive and scan it for credentials, user audio, model weights, logs, and sample fixtures.
 - [x] Confirm microphone signal and a real translated sentence from that source. Prompted Chinese speech produced an English subtitle; the latter clause was inaccurate, so quality acceptance remains open.
 - [x] Confirm recovery in the same app session after an app-scoped proxy returned two connection failures and then forwarded the next request; a real Chinese subtitle appeared.
 - [x] Confirm the visible network warning during four consecutive proxy failures, then restore forwarding and observe a new real translation and cleared warning without restarting the app.
+- [x] Retain each finalized subtitle pair for the whole current session, with scrolling and an independent partial line; verify reset, duplicates, and multi-line text in automated tests.
+- [x] Benchmark GPU recognition on English, Chinese, and Russian clips; run all three opt-in online audio chains after preparation. See the revision in the [trial report](feasibility/no-azure-trial-report.md).
+- [ ] Inspect the revised floating window visually in a launched review package. The preview launch encountered an application approval timeout.
 
 ## Public `v0.1.0` decision
 
-- [ ] Owner reviews actual translation accuracy and latency, especially Russian fragments and CPU delay.
+- [ ] Owner reviews actual translation accuracy and phrase-end latency, especially Russian fragments and the first-start preparation delay.
 - [ ] Test on a separate clean Windows x64 machine.
 - [ ] Determine whether a service with anonymous daily limits is acceptable for the intended use and whether Azure should return as an optional provider.
 - [ ] Measure sustained end-to-end runtime and service reliability; the existing 30-minute capture-only test does not establish translation stability.

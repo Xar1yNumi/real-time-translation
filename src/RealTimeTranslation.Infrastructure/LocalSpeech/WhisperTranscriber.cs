@@ -144,7 +144,7 @@ internal sealed class NativeWhisperInference : IWhisperInference
         string modelPath, ReadOnlyMemory<byte> wav, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        factory ??= WhisperFactory.FromPath(modelPath, new WhisperFactoryOptions { UseGpu = false });
+        factory ??= WhisperFactory.FromPath(modelPath, new WhisperFactoryOptions { UseGpu = true });
         processor ??= factory.CreateBuilder()
             .WithLanguageDetection()
             .WithNoContext()

@@ -2,7 +2,7 @@
 
 [简体中文](README.zh-CN.md)
 
-Windows desktop subtitles for spoken Chinese, English, and Russian. Choose one source (default speaker output or microphone) and one target language. A floating bar shows recognized speech and its translation.
+Windows desktop subtitles for spoken Chinese, English, and Russian. Choose one source (default speaker output or microphone) and one target language. A floating window appends recognized speech and translations throughout the session; scroll up to review earlier lines.
 
 ## Current short trial
 
@@ -17,7 +17,7 @@ On Windows x64, extract the review ZIP and run `RealTimeTranslation.Desktop.exe`
 1. Click **Download or verify speech model** and wait for 100%.
 2. Read and check the MyMemory text-sharing box.
 3. Select **System audio** for the default Windows output stream or **Microphone** for nearby speech. Select Chinese, English, or Russian as the target.
-4. Click **Start translation**. Move the pointer over the floating bar for Pause, Return to settings, and Close.
+4. Click **Start translation**. Initial GPU preparation may take about 20 seconds; capture begins afterward. Move the pointer over the floating window for Pause, Return to settings, and Close. Drag the window or scroll to review this session. A new session clears the history.
 
 For calls, choose system audio if the other person's voice plays through your default output device. Other sounds in the same stream may also be captured. The app cannot isolate one application or speaker.
 
@@ -38,6 +38,6 @@ The regular suite skips live service, audio-fixture, and 30-minute capture tests
 
 The app does not intentionally save audio, transcripts, translations, or subtitle history. Only recognized text goes to MyMemory; its [terms](https://mymemory.translated.net/terms-and-conditions) apply. Avoid confidential conversations in this trial. Pause and Close stop capture. See [privacy details](docs/privacy.md).
 
-Recognition takes several seconds per phrase on this CPU, so subtitles can lag. A bounded queue drops older pending phrases with a warning when processing falls behind. Network requests have limited retries; quota exhaustion ends the session. Short fragments can produce unnatural translations. The current package is for owner review; a clean Windows machine and longer service checks remain open.
+The app prefers Vulkan acceleration on compatible GPUs and retains a CPU runtime otherwise. Warmed recognition took around half a second on the three test clips on this PC; complete translation still waits for a phrase boundary and the network, so latency is not fixed. A bounded queue drops older pending phrases with a warning when processing falls behind. Network requests have limited retries; quota exhaustion ends the session. Short fragments can produce unnatural translations. The current package is for owner review; a clean Windows machine and longer service checks remain open.
 
 This project is [MIT licensed](LICENSE). See [third-party notices](THIRD_PARTY_NOTICES.md), [contributing](CONTRIBUTING.md), [security](SECURITY.md), and the [release checklist](docs/release-checklist.md).

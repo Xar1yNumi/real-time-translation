@@ -176,6 +176,10 @@ public sealed class TranslationCoordinator : IAsyncDisposable
         }
 
         await StopAsync(CancellationToken.None).ConfigureAwait(false);
+        if (provider is IAsyncDisposable disposableProvider)
+        {
+            await disposableProvider.DisposeAsync().ConfigureAwait(false);
+        }
         disposed = true;
         lifecycleGate.Dispose();
         GC.SuppressFinalize(this);

@@ -385,7 +385,7 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
         }
 
         IsBusy = true;
-        StatusMessage = IsNoAzureMode ? "正在启动本机识别与联网翻译…" : "正在连接翻译服务…";
+        StatusMessage = IsNoAzureMode ? "正在准备识别引擎并启动翻译（首次约需 20 秒）…" : "正在连接翻译服务…";
         var selectedEndpoint = IsNoAzureMode ? string.Empty : Endpoint;
         var selectedKey = IsNoAzureMode ? string.Empty : ApiKey;
         var selectedSource = SelectedAudioSource;

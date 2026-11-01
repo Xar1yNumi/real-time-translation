@@ -10,7 +10,7 @@ public sealed class WhisperLiveTests
     // https://github.com/ggml-org/whisper.cpp/blob/master/samples/jfk.wav
     [Trait("Category", "WhisperLive")]
     [Fact]
-    public async Task RecognizesEnglishFromRealWavOnCpu()
+    public async Task RecognizesEnglishFromRealWav()
     {
         if (Environment.GetEnvironmentVariable("RUN_WHISPER_LIVE_TESTS") != "1")
         {
@@ -45,7 +45,7 @@ public sealed class WhisperLiveTests
 
         timer.Stop();
         TestContext.Current.TestOutputHelper?.WriteLine(
-            $"Whisper CPU: {timer.Elapsed.TotalSeconds:F2}s; language={result.LanguageCode}; characters={result.Text?.Length ?? 0}");
+            $"Whisper recognition: {timer.Elapsed.TotalSeconds:F2}s; language={result.LanguageCode}; characters={result.Text?.Length ?? 0}");
         Assert.Equal(TranscriptionStatus.Recognized, result.Status);
         Assert.Equal("en", result.LanguageCode);
         Assert.Contains("country", result.Text!, StringComparison.OrdinalIgnoreCase);

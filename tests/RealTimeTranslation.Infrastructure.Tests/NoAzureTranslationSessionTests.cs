@@ -317,9 +317,11 @@ public sealed class NoAzureTranslationSessionTests
     [Fact]
     public async Task ProviderCreatesSessionWithoutAzureCredentials()
     {
-        var store = new FakeModelStore();
+        var transcriber = new FakeTranscriber((_, _) => Task.FromResult(
+            new TranscriptionResult(TranscriptionStatus.Empty, null, null)));
         var translator = new FakeTranslator((_, _, _, _) => Task.FromResult("ok"));
-        var provider = new NoAzureTranslationProvider(store, translator);
+        await using var provider = new NoAzureTranslationProvider(
+            _ => Task.FromResult<IWhisperTranscriber>(transcriber), translator);
 
         await using var session = await provider.CreateSessionAsync(
             new TranslationSessionOptions("", "", TargetLanguage.Russian),
@@ -327,7 +329,7 @@ public sealed class NoAzureTranslationSessionTests
         await session.StartAsync(TestContext.Current.CancellationToken);
         await session.StopAsync(TestContext.Current.CancellationToken);
 
-        Assert.Equal(1, store.Calls);
+        Assert.Equal(0, transcriber.DisposeCount);
     }
 
     private static byte[] Utterance()
@@ -372,21 +374,4 @@ public sealed class NoAzureTranslationSessionTests
         }
     }
 
-    private sealed class FakeModelStore : IWhisperModelStore
-    {
-        public int Calls { get; private set; }
-
-        public Task<string?> VerifyCachedAsync(CancellationToken cancellationToken) =>
-            Task.FromResult<string?>("validated-path");
-
-        public Task<string> EnsureAvailableAsync(
-            IProgress<double>? progress, CancellationToken cancellationToken)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            Calls++;
-            return Task.FromResult("validated-path");
-        }
-
-        public void Dispose() { }
-    }
 }
