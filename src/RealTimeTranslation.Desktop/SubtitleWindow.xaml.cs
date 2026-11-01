@@ -1,5 +1,7 @@
+using System.Collections.Specialized;
 using System.Runtime.InteropServices;
 using System.Windows;
+using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Interop;
 using RealTimeTranslation.Desktop.ViewModels;
@@ -11,6 +13,7 @@ public partial class SubtitleWindow : Window
     private const int ExtendedStyleIndex = -20;
     private const long NoActivateStyle = 0x08000000;
     private readonly SettingsViewModel settings;
+    private bool followLatest = true;
 
     public SubtitleWindow(SettingsViewModel settings)
     {
@@ -53,6 +56,37 @@ public partial class SubtitleWindow : Window
         if (DataContext is SubtitleViewModel model)
         {
             model.AreControlsVisible = false;
+        }
+    }
+
+    private void OnDataContextChanged(object sender, DependencyPropertyChangedEventArgs args)
+    {
+        if (args.OldValue is SubtitleViewModel oldModel)
+        {
+            ((INotifyCollectionChanged)oldModel.History).CollectionChanged -= OnHistoryChanged;
+        }
+
+        if (args.NewValue is SubtitleViewModel newModel)
+        {
+            followLatest = true;
+            ((INotifyCollectionChanged)newModel.History).CollectionChanged += OnHistoryChanged;
+        }
+    }
+
+    private void OnHistoryChanged(object? sender, NotifyCollectionChangedEventArgs args)
+    {
+        if (followLatest || args.Action == NotifyCollectionChangedAction.Reset)
+        {
+            followLatest = true;
+            Dispatcher.BeginInvoke(() => HistoryScrollViewer.ScrollToEnd());
+        }
+    }
+
+    private void OnHistoryScrollChanged(object sender, ScrollChangedEventArgs args)
+    {
+        if (args.ExtentHeightChange == 0 && args.ViewportHeightChange == 0)
+        {
+            followLatest = args.VerticalOffset >= args.ExtentHeight - args.ViewportHeight - 8;
         }
     }
 

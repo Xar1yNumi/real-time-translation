@@ -24,6 +24,44 @@ public sealed class SubtitleViewModelTests
         Assert.True(model.IsOriginalPartial);
         Assert.Equal(string.Empty, model.TranslatedText);
         Assert.Equal(1, fixture.Dispatcher.CallCount);
+        Assert.Empty(model.History);
+    }
+
+    [Fact]
+    public void FinalUtterancesAccumulateAndPartialDoesNotReplaceHistory()
+    {
+        var fixture = new Fixture();
+        using var model = fixture.Create();
+        fixture.Controller.EmitSubtitle(SubtitleState.Empty.Apply(
+            new FinalUtteranceUpdate("first", 1, "Hello", "你好", "en")));
+        fixture.Controller.EmitSubtitle(SubtitleState.Empty.Apply(
+            new PartialTranscriptUpdate("second", 2, "How are you")));
+
+        Assert.Equal("How are you", model.OriginalText);
+        Assert.Equal("你好", Assert.Single(model.History).TranslatedText);
+
+        fixture.Controller.EmitSubtitle(SubtitleState.Empty.Apply(
+            new FinalUtteranceUpdate("second", 2, "How are you?", "你好吗？", "en")));
+
+        Assert.Equal(["你好", "你好吗？"], model.History.Select(x => x.TranslatedText));
+        Assert.Equal(["Hello", "How are you?"], model.History.Select(x => x.OriginalText));
+        Assert.Equal("How are you?", model.OriginalText);
+    }
+
+    [Fact]
+    public void RepeatedFinalDoesNotDuplicateHistoryAndNewSessionClearsIt()
+    {
+        var fixture = new Fixture();
+        using var model = fixture.Create();
+        var first = SubtitleState.Empty.Apply(
+            new FinalUtteranceUpdate("first", 1, "Hello", "你好", "en"));
+        fixture.Controller.EmitSubtitle(first);
+        fixture.Controller.EmitSubtitle(first);
+        Assert.Single(model.History);
+
+        fixture.Controller.EmitSubtitle(SubtitleState.Empty);
+        Assert.Empty(model.History);
+        Assert.Equal(string.Empty, model.OriginalText);
     }
 
     [Fact]

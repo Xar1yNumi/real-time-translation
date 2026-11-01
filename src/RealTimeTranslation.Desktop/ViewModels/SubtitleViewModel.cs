@@ -1,3 +1,4 @@
+using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
 using System.Windows.Input;
@@ -8,6 +9,8 @@ namespace RealTimeTranslation.Desktop.ViewModels;
 
 public sealed class SubtitleViewModel : INotifyPropertyChanged, IDisposable
 {
+    private readonly ObservableCollection<SubtitleLine> history = [];
+    private readonly Dictionary<string, int> historyIndex = new(StringComparer.Ordinal);
     private readonly ITranslationSessionController coordinator;
     private readonly IUiDispatcher dispatcher;
     private readonly IWindowOrchestrator windows;
@@ -23,6 +26,7 @@ public sealed class SubtitleViewModel : INotifyPropertyChanged, IDisposable
     private bool areControlsVisible;
     private bool isBusy;
     private bool disposed;
+    private long lastSequence = -1;
 
     public SubtitleViewModel(
         ITranslationSessionController coordinator,
@@ -36,6 +40,7 @@ public sealed class SubtitleViewModel : INotifyPropertyChanged, IDisposable
         this.windows = windows ?? throw new ArgumentNullException(nameof(windows));
         this.activeOptions = activeOptions ?? throw new ArgumentNullException(nameof(activeOptions));
         this.onStopped = onStopped ?? throw new ArgumentNullException(nameof(onStopped));
+        History = new ReadOnlyObservableCollection<SubtitleLine>(history);
         connectionStatus = GetStatus(coordinator.State);
         pauseResumeCommand = new AsyncCommand(() => PauseResumeAsync(CancellationToken.None),
             () => !isBusy && coordinator.State is SessionState.Listening
@@ -49,6 +54,8 @@ public sealed class SubtitleViewModel : INotifyPropertyChanged, IDisposable
     }
 
     public event PropertyChangedEventHandler? PropertyChanged;
+
+    public ReadOnlyObservableCollection<SubtitleLine> History { get; }
 
     public string OriginalText
     {
@@ -212,17 +219,53 @@ public sealed class SubtitleViewModel : INotifyPropertyChanged, IDisposable
                 return;
             }
 
+            if (args.State == SubtitleState.Empty)
+            {
+                history.Clear();
+                historyIndex.Clear();
+                lastSequence = -1;
+                OriginalText = string.Empty;
+                TranslatedText = string.Empty;
+                IsOriginalPartial = false;
+                return;
+            }
+
             var options = activeOptions();
             if (options is null)
             {
                 return;
             }
 
+            if (args.State.Sequence < lastSequence)
+            {
+                return;
+            }
+
+            lastSequence = args.State.Sequence;
+
             OriginalText = args.State.OriginalText;
             TranslatedText = !args.State.IsOriginalPartial
                 && IsSameLanguage(args.State.DetectedLanguage, options.TargetLanguage)
                 ? "与目标语言相同" : args.State.TranslatedText;
             IsOriginalPartial = args.State.IsOriginalPartial;
+            if (!args.State.IsOriginalPartial
+                && !string.IsNullOrWhiteSpace(args.State.OriginalText)
+                && !string.IsNullOrWhiteSpace(args.State.UtteranceId))
+            {
+                var line = new SubtitleLine(args.State.OriginalText, TranslatedText);
+                if (historyIndex.TryGetValue(args.State.UtteranceId, out var index))
+                {
+                    if (history[index] != line)
+                    {
+                        history[index] = line;
+                    }
+                }
+                else
+                {
+                    historyIndex.Add(args.State.UtteranceId, history.Count);
+                    history.Add(line);
+                }
+            }
             if (!args.State.IsOriginalPartial
                 && !IsSameLanguage(args.State.DetectedLanguage, options.TargetLanguage)
                 && !string.IsNullOrWhiteSpace(args.State.TranslatedText))
@@ -308,3 +351,5 @@ public sealed class SubtitleViewModel : INotifyPropertyChanged, IDisposable
         public void RaiseCanExecuteChanged() => CanExecuteChanged?.Invoke(this, EventArgs.Empty);
     }
 }
+
+public sealed record SubtitleLine(string OriginalText, string TranslatedText);

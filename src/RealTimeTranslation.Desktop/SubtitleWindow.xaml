@@ -1,10 +1,11 @@
 <Window x:Class="RealTimeTranslation.Desktop.SubtitleWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="实时翻译字幕" Width="760" Height="176"
+        Title="实时翻译字幕" Width="760" Height="328"
         WindowStyle="None" AllowsTransparency="True" Background="Transparent"
         Topmost="True" ShowInTaskbar="True" ShowActivated="False"
-        ResizeMode="NoResize" SourceInitialized="OnSourceInitialized">
+        ResizeMode="NoResize" SourceInitialized="OnSourceInitialized"
+        DataContextChanged="OnDataContextChanged">
     <Window.Resources>
         <BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter" />
         <Style x:Key="OverlayButton" TargetType="Button">
@@ -16,15 +17,15 @@
             <Setter Property="Cursor" Value="Hand" />
         </Style>
     </Window.Resources>
-    <Border Background="#DD17243A" CornerRadius="14" Padding="18,12"
+    <Border Background="#E617243A" CornerRadius="14" Padding="18,12"
             MouseEnter="OnMouseEnter" MouseLeave="OnMouseLeave">
         <Grid>
             <Grid.RowDefinitions>
-                <RowDefinition Height="31" />
-                <RowDefinition Height="54" />
-                <RowDefinition Height="54" />
+                <RowDefinition Height="34" />
+                <RowDefinition Height="*" />
+                <RowDefinition Height="Auto" />
             </Grid.RowDefinitions>
-            <Grid Grid.Row="0">
+            <Grid Grid.Row="0" MouseLeftButtonDown="OnDragAreaMouseDown" Cursor="SizeAll">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*" />
                     <ColumnDefinition Width="Auto" />
@@ -41,31 +42,35 @@
                             Style="{StaticResource OverlayButton}" />
                 </StackPanel>
             </Grid>
-            <Grid Grid.Row="1" MouseLeftButtonDown="OnDragAreaMouseDown" Cursor="SizeAll">
-                <TextBlock Text="{Binding OriginalText}"
-                           FontFamily="Microsoft YaHei UI" FontSize="16" LineHeight="24"
-                           LineStackingStrategy="BlockLineHeight" TextWrapping="Wrap"
-                           TextTrimming="CharacterEllipsis" MaxHeight="48"
-                           VerticalAlignment="Center">
-                    <TextBlock.Style>
-                        <Style TargetType="TextBlock">
-                            <Setter Property="Foreground" Value="White" />
-                            <Style.Triggers>
-                                <DataTrigger Binding="{Binding IsOriginalPartial}" Value="True">
-                                    <Setter Property="Foreground" Value="#B8C4D4" />
-                                </DataTrigger>
-                            </Style.Triggers>
-                        </Style>
-                    </TextBlock.Style>
-                </TextBlock>
-            </Grid>
-            <Grid Grid.Row="2" MouseLeftButtonDown="OnDragAreaMouseDown" Cursor="SizeAll">
-                <TextBlock Text="{Binding TranslatedText}" Foreground="White"
-                           FontFamily="Microsoft YaHei UI" FontSize="18" FontWeight="SemiBold"
-                           LineHeight="26" LineStackingStrategy="BlockLineHeight"
-                           TextWrapping="Wrap" TextTrimming="CharacterEllipsis"
-                           MaxHeight="52" VerticalAlignment="Center" />
-            </Grid>
+            <ScrollViewer x:Name="HistoryScrollViewer" Grid.Row="1"
+                          VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"
+                          ScrollChanged="OnHistoryScrollChanged">
+                <ItemsControl ItemsSource="{Binding History}">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <Border BorderBrush="#385069" BorderThickness="0,0,0,1"
+                                    Padding="0,7,12,9">
+                                <StackPanel>
+                                    <TextBlock Text="{Binding OriginalText}" Foreground="#D1DDEA"
+                                               FontFamily="Microsoft YaHei UI" FontSize="14"
+                                               TextWrapping="Wrap" />
+                                    <TextBlock Text="{Binding TranslatedText}" Foreground="White"
+                                               FontFamily="Microsoft YaHei UI" FontSize="18"
+                                               FontWeight="SemiBold" TextWrapping="Wrap"
+                                               Margin="0,4,0,0" />
+                                </StackPanel>
+                            </Border>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+            </ScrollViewer>
+            <Border Grid.Row="2" BorderBrush="#385069" BorderThickness="0,1,0,0"
+                    Padding="0,8,10,2"
+                    Visibility="{Binding IsOriginalPartial, Converter={StaticResource BooleanToVisibilityConverter}}">
+                <TextBlock Text="{Binding OriginalText}" Foreground="#B8C4D4"
+                           FontFamily="Microsoft YaHei UI" FontSize="14"
+                           TextWrapping="Wrap" MaxHeight="56" />
+            </Border>
         </Grid>
     </Border>
 </Window>
