@@ -2,30 +2,28 @@
 
 [简体中文](README.zh-CN.md)
 
-Real-time Translation is a Windows desktop project for following foreign-language videos, live streams, and online meetings with bilingual overlay subtitles. It is designed to recognize spoken Chinese, English, or Russian from **system audio** or a **microphone**, then show the source text and a translation into your chosen language. Each session uses one audio source and one target language.
+Windows desktop subtitles for spoken Chinese, English, and Russian. Choose one source (default speaker output or microphone) and one target language. A floating bar shows recognized speech and its translation.
 
-> **Development status:** This repository contains an MVP in progress, not a validated release. Azure end-to-end translation, network recovery, and a continuous cloud session still need live testing. There is no release package yet.
+## Current short trial
 
-## What the MVP is designed to do
+The default app needs **no Azure account, API key, or other registration**. It recognizes speech locally with a multilingual Whisper model, then sends recognized text over HTTPS to MyMemory. An internet connection is required while translating. First use downloads and verifies a roughly 190 MB model; later launches reuse it. Audio stays on your computer. You must confirm the text-sharing notice before starting.
 
-- Detect `zh-CN`, `en-US`, or `ru-RU` between utterances and translate into Simplified Chinese, English, or Russian.
-- Show provisional source text and final translations in an always-on-top, draggable, two-line-per-language subtitle bar.
-- Let you pause, resume, return to settings, or close the app from the overlay.
-- Use either the Windows default playback device or the default microphone. System audio captures the **whole default playback stream**, so other sounds playing on the computer may also be included.
-- Keep the Azure API key in Windows Credential Manager and provide a control to delete it.
+MyMemory allows [5,000 anonymous characters per day](https://mymemory.translated.net/doc/usagelimits.php) and [500 UTF-8 bytes per request](https://mymemory.translated.net/doc/spec.php). Service availability and translation quality vary. This trial has not passed a 30-minute service test and is not a public `v0.1.0` release. Optional Azure code remains in `RealTimeTranslation.Azure` but is absent from the default desktop package.
 
-The source recognition and translation flow is implemented, but its three-language behavior and user experience have **not** been verified against a real Azure Speech resource. See the [technical feasibility report](docs/feasibility/azure-audio-report.md) and [subtitle UX checkpoint](docs/feasibility/subtitle-ux-checkpoint.md) for measured results and remaining checks.
+## Try it
 
-## Requirements
+On Windows x64, extract the review ZIP and run `RealTimeTranslation.Desktop.exe`. Keep the extracted files together.
 
-- Windows x64.
-- [.NET SDK 10.0.301](global.json) to build from source.
-- Your own Azure AI Speech resource, HTTPS Endpoint, and API key, plus an internet connection for translation.
-- A working default playback device or microphone.
+1. Click **Download or verify speech model** and wait for 100%.
+2. Read and check the MyMemory text-sharing box.
+3. Select **System audio** for the default Windows output stream or **Microphone** for nearby speech. Select Chinese, English, or Russian as the target.
+4. Click **Start translation**. Move the pointer over the floating bar for Pause, Return to settings, and Close.
 
-The application is intended to be free and open source, but **Azure usage may incur charges** under your own subscription. Check your Azure pricing and usage limits before starting a session.
+For calls, choose system audio if the other person's voice plays through your default output device. Other sounds in the same stream may also be captured. The app cannot isolate one application or speaker.
 
-## Build and run from source
+## Build from source
+
+Requires Windows x64 and [.NET SDK 10.0.301](global.json):
 
 ```powershell
 dotnet restore RealTimeTranslation.slnx --locked-mode
@@ -34,29 +32,12 @@ dotnet test RealTimeTranslation.slnx --configuration Release --no-build
 dotnet run --project src/RealTimeTranslation.Desktop/RealTimeTranslation.Desktop.csproj --configuration Release --no-build
 ```
 
-In the settings window:
+The regular suite skips live service, audio-fixture, and 30-minute capture tests. See the [implementation plan](docs/superpowers/plans/2026-10-31-no-azure-online-trial.md) and [acceptance report](docs/feasibility/no-azure-trial-report.md).
 
-1. Enter the Endpoint and API key from your Azure Speech resource, then select **Test connection**. The connection-test behavior still requires validation with valid and invalid live credentials.
-2. Choose **System audio** or **Microphone**, then select the target language.
-3. Select **Start translation**. Audio capture starts only after this action. Move the pointer over the subtitle bar to show its controls.
+## Privacy and limits
 
-For a call where you want to translate the other person's voice, choose system audio and route that voice through the computer's default playback device. This MVP cannot isolate one application or speaker from other sounds in the same playback stream.
+The app does not intentionally save audio, transcripts, translations, or subtitle history. Only recognized text goes to MyMemory; its [terms](https://mymemory.translated.net/terms-and-conditions) apply. Avoid confidential conversations in this trial. Pause and Close stop capture. See [privacy details](docs/privacy.md).
 
-## Privacy
+Recognition takes several seconds per phrase on this CPU, so subtitles can lag. A bounded queue drops older pending phrases with a warning when processing falls behind. Network requests have limited retries; quota exhaustion ends the session. Short fragments can produce unnatural translations. The current package is for owner review; a clean Windows machine and longer service checks remain open.
 
-During an active translation session, audio is sent directly from your computer to Azure AI Speech. The project does not run its own server. The application does not intentionally save captured audio, recognized text, translations, or subtitle history. Non-sensitive preferences, including the Endpoint, are saved under the current user's local application data; the API key is stored in Windows Credential Manager. Bounded diagnostic logs under `%LOCALAPPDATA%/RealTimeTranslation/logs` contain only event names, error categories, timestamps, and allowed numeric metrics. Do not put a real key in the repository, test files, logs, or issue reports. See the [privacy notes](docs/privacy.md).
-
-## Troubleshooting
-
-- **Connection test fails:** check that the Endpoint is HTTPS, that the key belongs to your Azure Speech resource, and that the network can reach Azure. Authentication and network failures have separate safe messages; live behavior still needs validation.
-- **No words appear:** check the chosen source and Windows default device. System audio captures the default playback stream; a silent stream can still produce audio frames.
-- **Subtitles stop after a disconnection:** the app makes bounded 1, 2, and 4-second retries only for network or service failures. Return to settings if it reports a final failure. Real network recovery remains unverified.
-- **Unexpected Azure charges:** pause or close the session and review usage in your own Azure subscription.
-
-Screenshots are pending the Windows UI review. The [subtitle UX checkpoint](docs/feasibility/subtitle-ux-checkpoint.md) records the current interaction checks.
-
-## Project status
-
-Local automated tests and Windows audio-capture checks exist, including a 30-minute **capture-only** loopback run. They do not establish cloud translation reliability. Before a public `v0.1.0` release, the project still needs real Azure checks for Chinese, English, and Russian; latency; disconnection and recovery; overlay interaction; and at least 30 minutes of end-to-end translation. The [implementation plan](docs/superpowers/plans/2026-10-27-real-time-translation-mvp.md) tracks the remaining work.
-
-The project uses the [MIT license](LICENSE). See [CONTRIBUTING.md](CONTRIBUTING.md), [SECURITY.md](SECURITY.md), the [changelog](CHANGELOG.md), and the [release checklist](docs/release-checklist.md). A public `v0.1.0` release remains subject to the outstanding live checks and the owner's publication approval.
+This project is [MIT licensed](LICENSE). See [third-party notices](THIRD_PARTY_NOTICES.md), [contributing](CONTRIBUTING.md), [security](SECURITY.md), and the [release checklist](docs/release-checklist.md).

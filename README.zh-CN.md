@@ -2,30 +2,28 @@
 
 [English](README.md)
 
-这是一个面向 Windows 的实时翻译字幕项目，目标是在观看外语视频、直播或参加线上会议时，把中英俄语音显示为屏幕上的双语悬浮字幕。你可以选择**系统声音**，翻译电脑正在播放的语音；也可以选择**麦克风**，翻译身边的语音。一次会话只使用一个音源和一种目标语言。
+这是一款 Windows 中英俄实时翻译字幕软件。每次选择一个音源（默认扬声器的系统声音或麦克风）和一种目标语言，悬浮字幕条显示识别原文与译文。
 
-> **当前状态：**项目仍在开发 MVP，尚不是经过完整验收的正式版本。Azure 端到端翻译、断网恢复和云端连续运行仍待实测，目前也没有可下载的正式安装包。
+## 当前短时试用版
 
-## MVP 计划提供的功能
+默认程序**不需要 Azure 账号、API Key 或其他注册**。Whisper 模型在本机识别语音，识别后的文字经 HTTPS 发给 MyMemory 获取译文。翻译时必须联网。第一次使用需下载并校验约 190 MB 的语音模型，以后可复用；音频不上传。开始前须确认界面上的文字发送说明。
 
-- 在不同语句之间识别 `zh-CN`、`en-US` 或 `ru-RU`，并翻译为简体中文、英语或俄语。
-- 在置顶、可拖动的字幕条中显示临时识别原文和最终译文；原文与译文区域各最多显示两行。
-- 在悬浮字幕条中暂停、恢复、返回设置或关闭软件。
-- 从 Windows 默认播放设备或默认麦克风中选择一个音源。系统音源采集的是**默认设备的全部播放声音**，电脑同时播放的其他声音也可能被采集。
-- 将 Azure API Key 保存在 Windows 凭据管理器中，并提供删除入口。
+MyMemory [匿名额度为每天 5,000 字符](https://mymemory.translated.net/doc/usagelimits.php)，[单次请求最多 500 UTF-8 字节](https://mymemory.translated.net/doc/spec.php)。服务可用性和译文质量会变化。本试用版尚未通过 30 分钟连续服务验收，也不是公开的 `v0.1.0` 正式版。Azure 代码保留在可选的 `RealTimeTranslation.Azure` 项目中，默认桌面包不包含 Azure SDK。
 
-语音识别和翻译流程已有代码实现，但三语能力和实际体验**尚未用真实 Azure Speech 资源验证**。已取得的证据与待测项目见[技术可行性报告](docs/feasibility/azure-audio-report.md)和[悬浮字幕交互检查点](docs/feasibility/subtitle-ux-checkpoint.md)。
+## 如何使用
 
-## 运行条件
+在 Windows x64 上解压试用 ZIP，运行 `RealTimeTranslation.Desktop.exe`，不要单独移走其中的文件。
 
-- Windows x64。
-- 从源码构建需要 [.NET SDK 10.0.301](global.json)。
-- 自备 Azure AI Speech 资源、HTTPS Endpoint 和 API Key；翻译时需要联网。
-- 可用的默认播放设备或麦克风。
+1. 点击“下载或校验语音模型”，等待进度达到 100%。
+2. 阅读并勾选发送识别文字到 MyMemory 的说明。
+3. 选“系统声音”可翻译默认播放设备中的声音；选“麦克风”可翻译电脑附近的说话声。再选择中文、英语或俄语作为目标语言。
+4. 点击“开始翻译”。鼠标移入悬浮字幕条，可使用暂停、返回设置和关闭按钮。
 
-软件计划免费开源，但**Azure 服务可能根据你的订阅产生费用**。开始使用前，请核对自己的 Azure 价格和用量限制。
+如果通话时只想翻译对方的声音，可选择系统声音，并让对方语音通过默认播放设备输出。同一播放流中的其他声音也可能被采集；当前版本无法单独筛选应用或说话人。
 
-## 从源码构建和运行
+## 从源码构建
+
+需要 Windows x64 和 [.NET SDK 10.0.301](global.json)：
 
 ```powershell
 dotnet restore RealTimeTranslation.slnx --locked-mode
@@ -34,29 +32,12 @@ dotnet test RealTimeTranslation.slnx --configuration Release --no-build
 dotnet run --project src/RealTimeTranslation.Desktop/RealTimeTranslation.Desktop.csproj --configuration Release --no-build
 ```
 
-在设置窗口中：
+常规测试会跳过需要真实服务、本机测试音频或 30 分钟采集的项目。已取得的证据和待测项目见[实施计划](docs/superpowers/plans/2026-10-31-no-azure-online-trial.md)与[验收报告](docs/feasibility/no-azure-trial-report.md)。
 
-1. 填入 Azure Speech 资源的 Endpoint 和 API Key，点击“测试连接”。连接测试对有效和无效真实凭据的行为仍待验证。
-2. 选择“系统声音”或“麦克风”，再选择目标语言。
-3. 点击“开始翻译”。只有点击后才开始采集音频；鼠标移入悬浮字幕条可显示操作按钮。
+## 隐私与限制
 
-如果你在电脑上通话，只想翻译对方的声音，可以选择系统声音，并让对方语音通过电脑的默认播放设备输出。本 MVP 无法从同一播放流中单独分离某个应用或说话人的声音。
+软件不主动保存音频、识别文字、译文或字幕历史。只有识别文字发送到 MyMemory，并受其[服务条款](https://mymemory.translated.net/terms-and-conditions)约束；短时试用时请避免机密通话。暂停和关闭会停止采集。详情见[隐私说明](docs/privacy.md)。
 
-## 隐私
+这台电脑识别一段话需要数秒，字幕可能明显落后。处理积压时有界队列会丢弃较早的待识别语句并提示。网络故障会进行有限重试；匿名额度耗尽则停止会话。短句或片段的译文可能不自然。当前试用包供项目负责人验收，独立干净电脑和长时服务检查仍待完成。
 
-翻译会话进行期间，音频从本机直接发送到 Azure AI Speech；项目没有自建服务器。软件本身不主动保存采集音频、识别原文、译文或字幕历史。Endpoint 等非敏感设置保存在当前用户的本地应用数据目录，API Key 保存在 Windows 凭据管理器。`%LOCALAPPDATA%/RealTimeTranslation/logs` 中有容量受限的诊断日志，只记录事件名、错误类别、时间戳和允许的数字指标。不要把真实密钥写入仓库、测试文件、日志或问题报告。详情见[隐私说明](docs/privacy.md)。
-
-## 故障排查
-
-- **连接测试失败：**检查 Endpoint 是否为 HTTPS、密钥是否属于你的 Azure Speech 资源，以及网络能否连接 Azure。认证和网络错误会显示不同的安全提示；真实服务行为仍待验证。
-- **没有出现文字：**检查所选音源和 Windows 默认设备。系统声音只采集默认播放流；静音时也可能产生音频帧。
-- **断线后字幕停止：**网络或服务故障只会按 1、2、4 秒进行有限重试。最终失败时请返回设置。真实断网恢复仍待实测。
-- **Azure 费用异常：**暂停或关闭会话，并在自己的 Azure 订阅中核对用量。
-
-截图将在 Windows 界面复核后补充；当前交互检查见[悬浮字幕检查点](docs/feasibility/subtitle-ux-checkpoint.md)。
-
-## 项目进度
-
-项目已有本地自动化测试和 Windows 音频采集测试，其中包含一次 **30 分钟仅采集**的系统回环测试。这些结果不能证明云端翻译稳定。公开发布 `v0.1.0` 前，还需完成中英俄真实 Azure 测试、延迟测量、断网与恢复、悬浮窗交互，以及至少 30 分钟端到端翻译实测。后续工作见[MVP 实施计划](docs/superpowers/plans/2026-10-27-real-time-translation-mvp.md)。
-
-项目采用 [MIT 许可证](LICENSE)。另见[贡献指南](CONTRIBUTING.md)、[安全报告说明](SECURITY.md)、[变更记录](CHANGELOG.md)和[发布检查清单](docs/release-checklist.md)。公开发布 `v0.1.0` 仍需完成尚缺的真实服务检查，并取得项目负责人的发布确认。
+项目采用 [MIT 许可证](LICENSE)。另见[第三方许可说明](THIRD_PARTY_NOTICES.md)、[贡献指南](CONTRIBUTING.md)、[安全说明](SECURITY.md)和[发布检查清单](docs/release-checklist.md)。
