@@ -5,6 +5,8 @@ namespace RealTimeTranslation.Infrastructure.Translation;
 
 public sealed class NoAzureTranslationSession : ITranslationSession
 {
+    private static readonly TimeSpan[] RetryDelays =
+        [TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(4)];
     private readonly object sync = new();
     private readonly Queue<QueuedUtterance> pending = new();
     private readonly SemaphoreSlim available = new(0);
@@ -12,6 +14,7 @@ public sealed class NoAzureTranslationSession : ITranslationSession
     private readonly PcmUtteranceSegmenter segmenter = new();
     private readonly IWhisperTranscriber transcriber;
     private readonly IMyMemoryTranslator translator;
+    private readonly Func<TimeSpan, CancellationToken, Task> delayAsync;
     private readonly string targetCode;
     private Task? worker;
     private Task? disposeTask;
@@ -22,9 +25,19 @@ public sealed class NoAzureTranslationSession : ITranslationSession
         IWhisperTranscriber transcriber,
         IMyMemoryTranslator translator,
         TargetLanguage targetLanguage)
+        : this(transcriber, translator, targetLanguage, Task.Delay)
+    {
+    }
+
+    internal NoAzureTranslationSession(
+        IWhisperTranscriber transcriber,
+        IMyMemoryTranslator translator,
+        TargetLanguage targetLanguage,
+        Func<TimeSpan, CancellationToken, Task> delayAsync)
     {
         this.transcriber = transcriber ?? throw new ArgumentNullException(nameof(transcriber));
         this.translator = translator ?? throw new ArgumentNullException(nameof(translator));
+        this.delayAsync = delayAsync ?? throw new ArgumentNullException(nameof(delayAsync));
         targetCode = targetLanguage switch
         {
             TargetLanguage.SimplifiedChinese => "zh",
@@ -184,11 +197,12 @@ public sealed class NoAzureTranslationSession : ITranslationSession
 
                 Raise(new PartialTranscriptUpdate(
                     utterance.Id, utterance.Sequence, result.Text));
-                var translated = result.LanguageCode == targetCode
-                    ? result.Text
-                    : await translator.TranslateAsync(
-                        result.Text, result.LanguageCode, targetCode,
-                        cancellationToken).ConfigureAwait(false);
+                var translated = await TranslateWithRetriesAsync(
+                    utterance, result, cancellationToken).ConfigureAwait(false);
+                if (translated is null)
+                {
+                    continue;
+                }
                 cancellationToken.ThrowIfCancellationRequested();
                 Raise(new FinalUtteranceUpdate(
                     utterance.Id, utterance.Sequence, result.Text,
@@ -206,6 +220,44 @@ public sealed class NoAzureTranslationSession : ITranslationSession
         {
             RaiseFailure(AppErrorCode.Unknown);
         }
+    }
+
+    private async Task<string?> TranslateWithRetriesAsync(
+        QueuedUtterance utterance,
+        TranscriptionResult result,
+        CancellationToken cancellationToken)
+    {
+        if (result.LanguageCode == targetCode)
+        {
+            return result.Text;
+        }
+
+        for (var attempt = 0; attempt <= RetryDelays.Length; attempt++)
+        {
+            try
+            {
+                return await translator.TranslateAsync(
+                    result.Text!, result.LanguageCode!, targetCode,
+                    cancellationToken).ConfigureAwait(false);
+            }
+            catch (AppFailureException failure) when (failure.Error.IsTransient)
+            {
+                if (attempt == 0)
+                {
+                    Raise(new TranslationWarningUpdate(
+                        utterance.Id, utterance.Sequence, failure.Error.Code));
+                }
+
+                if (attempt == RetryDelays.Length)
+                {
+                    return null;
+                }
+
+                await delayAsync(RetryDelays[attempt], cancellationToken).ConfigureAwait(false);
+            }
+        }
+
+        return null;
     }
 
     private void RaiseFailure(AppErrorCode code)

@@ -141,11 +141,10 @@ public sealed class NoAzureTranslationSessionTests
         Assert.Equal(0, session.PendingUtterances);
     }
 
-    [Theory]
-    [InlineData(AppErrorCode.NetworkUnavailable)]
-    [InlineData(AppErrorCode.RateLimited)]
-    public async Task TranslationFailureProducesClassifiedCanceledUpdate(AppErrorCode errorCode)
+    [Fact]
+    public async Task QuotaFailureProducesClassifiedCanceledUpdate()
     {
+        const AppErrorCode errorCode = AppErrorCode.RateLimited;
         var transcriber = new FakeTranscriber((_, _) => Task.FromResult(
             new TranscriptionResult(TranscriptionStatus.Recognized, "Hello", "en")));
         var translator = new FakeTranslator((_, _, _, _) =>
@@ -168,6 +167,83 @@ public sealed class NoAzureTranslationSessionTests
             TimeSpan.FromSeconds(5), TestContext.Current.CancellationToken);
 
         Assert.Equal(errorCode, result.ErrorCode);
+    }
+
+    [Fact]
+    public async Task TransientNetworkFailureRetriesAndProducesFinalWithoutRestart()
+    {
+        var calls = 0;
+        var delays = new List<TimeSpan>();
+        var transcriber = new FakeTranscriber((_, _) => Task.FromResult(
+            new TranscriptionResult(TranscriptionStatus.Recognized, "Hello", "en")));
+        var translator = new FakeTranslator((_, _, _, _) =>
+            Task.FromResult(Interlocked.Increment(ref calls) <= 2
+                ? throw new AppFailureException(AppError.For(AppErrorCode.NetworkUnavailable))
+                : "你好"));
+        await using var session = new NoAzureTranslationSession(
+            transcriber, translator, TargetLanguage.SimplifiedChinese,
+            (delay, _) => { delays.Add(delay); return Task.CompletedTask; });
+        var updates = new List<TranslationUpdate>();
+        var finalSeen = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        session.UpdateReceived += (_, args) =>
+        {
+            lock (updates) { updates.Add(args.Update); }
+            if (args.Update is FinalUtteranceUpdate) { finalSeen.TrySetResult(); }
+        };
+
+        await session.StartAsync(TestContext.Current.CancellationToken);
+        await session.WriteAudioAsync(Utterance(), TestContext.Current.CancellationToken);
+        await finalSeen.Task.WaitAsync(TimeSpan.FromSeconds(5), TestContext.Current.CancellationToken);
+
+        TranslationUpdate[] snapshot;
+        lock (updates) { snapshot = [.. updates]; }
+        Assert.Equal(3, calls);
+        Assert.Equal([TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2)], delays);
+        Assert.Contains(snapshot, update => update is TranslationWarningUpdate warning &&
+            warning.ErrorCode == AppErrorCode.NetworkUnavailable);
+        Assert.Contains(snapshot, update => update is FinalUtteranceUpdate final &&
+            final.TranslatedText == "你好");
+        Assert.DoesNotContain(snapshot, update => update is TranslationCanceledUpdate);
+    }
+
+    [Fact]
+    public async Task PersistentNetworkFailureWarnsAndAllowsNextUtterance()
+    {
+        var calls = 0;
+        var transcriber = new FakeTranscriber((_, _) => Task.FromResult(
+            new TranscriptionResult(TranscriptionStatus.Recognized, "Hello", "en")));
+        var translator = new FakeTranslator((_, _, _, _) =>
+            Task.FromResult(Interlocked.Increment(ref calls) <= 4
+                ? throw new AppFailureException(AppError.For(AppErrorCode.NetworkUnavailable))
+                : "你好"));
+        await using var session = new NoAzureTranslationSession(
+            transcriber, translator, TargetLanguage.SimplifiedChinese,
+            (_, _) => Task.CompletedTask);
+        var warnings = new List<TranslationWarningUpdate>();
+        var finalSeen = new TaskCompletionSource<FinalUtteranceUpdate>(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        session.UpdateReceived += (_, args) =>
+        {
+            if (args.Update is TranslationWarningUpdate warning)
+            {
+                lock (warnings) { warnings.Add(warning); }
+            }
+            if (args.Update is FinalUtteranceUpdate final) { finalSeen.TrySetResult(final); }
+        };
+
+        await session.StartAsync(TestContext.Current.CancellationToken);
+        await session.WriteAudioAsync(Utterance(), TestContext.Current.CancellationToken);
+        await session.WriteAudioAsync(Utterance(), TestContext.Current.CancellationToken);
+        var result = await finalSeen.Task.WaitAsync(
+            TimeSpan.FromSeconds(5), TestContext.Current.CancellationToken);
+
+        Assert.Equal(5, calls);
+        Assert.Equal(2, result.Sequence);
+        lock (warnings)
+        {
+            Assert.Contains(warnings, warning => warning.Sequence == 1 &&
+                warning.ErrorCode == AppErrorCode.NetworkUnavailable);
+        }
     }
 
     [Fact]

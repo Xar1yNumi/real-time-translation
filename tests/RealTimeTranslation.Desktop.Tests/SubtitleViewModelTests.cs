@@ -94,6 +94,43 @@ public sealed class SubtitleViewModelTests
     }
 
     [Fact]
+    public void SuccessfulTranslationClearsPreviousNetworkWarning()
+    {
+        var fixture = new Fixture();
+        fixture.ActiveOptions = new StartTranslationOptions(
+            "", "", AudioSourceKind.SystemAudio, TargetLanguage.SimplifiedChinese);
+        fixture.Controller.SetState(SessionState.Listening);
+        using var model = fixture.Create();
+        fixture.Controller.EmitWarning(new TranslationWarningUpdate(
+            "failed", 1, AppErrorCode.NetworkUnavailable));
+
+        fixture.Controller.EmitSubtitle(SubtitleState.Empty.Apply(
+            new FinalUtteranceUpdate("recovered", 2, "Hello", "你好", "en")));
+
+        Assert.Equal("本机识别／联网翻译中", model.ConnectionStatus);
+        Assert.Equal("你好", model.TranslatedText);
+    }
+
+    [Fact]
+    public void SameLanguageUtteranceDoesNotClearNetworkWarning()
+    {
+        var fixture = new Fixture();
+        fixture.ActiveOptions = new StartTranslationOptions(
+            "", "", AudioSourceKind.SystemAudio, TargetLanguage.SimplifiedChinese);
+        fixture.Controller.SetState(SessionState.Listening);
+        using var model = fixture.Create();
+        fixture.Controller.EmitWarning(new TranslationWarningUpdate(
+            "failed", 1, AppErrorCode.NetworkUnavailable));
+
+        fixture.Controller.EmitSubtitle(SubtitleState.Empty.Apply(
+            new FinalUtteranceUpdate("same-language", 2, "你好", "你好", "zh")));
+
+        Assert.Equal(AppError.For(AppErrorCode.NetworkUnavailable).UserMessage,
+            model.ConnectionStatus);
+        Assert.Equal("与目标语言相同", model.TranslatedText);
+    }
+
+    [Fact]
     public void NoAzureListeningStateNamesLocalRecognitionAndOnlineTranslation()
     {
         var fixture = new Fixture();

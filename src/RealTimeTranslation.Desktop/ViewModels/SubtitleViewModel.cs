@@ -223,6 +223,12 @@ public sealed class SubtitleViewModel : INotifyPropertyChanged, IDisposable
                 && IsSameLanguage(args.State.DetectedLanguage, options.TargetLanguage)
                 ? "与目标语言相同" : args.State.TranslatedText;
             IsOriginalPartial = args.State.IsOriginalPartial;
+            if (!args.State.IsOriginalPartial
+                && !IsSameLanguage(args.State.DetectedLanguage, options.TargetLanguage)
+                && !string.IsNullOrWhiteSpace(args.State.TranslatedText))
+            {
+                ConnectionStatus = GetStatus(coordinator.State);
+            }
         });
 
     private void OnWarningReceived(object? sender, TranslationUpdateEventArgs args) =>
