@@ -16,6 +16,7 @@ Status: **owner review package, not a public `v0.1.0` release**. The default des
 - [x] Confirm the visible network warning during four consecutive proxy failures, then restore forwarding and observe a new real translation and cleared warning without restarting the app.
 - [x] Retain each finalized subtitle pair for the whole current session, with scrolling and an independent partial line; verify reset, duplicates, and multi-line text in automated tests.
 - [x] Benchmark GPU recognition on English, Chinese, and Russian clips; run all three opt-in online audio chains after preparation. See the revision in the [trial report](feasibility/no-azure-trial-report.md).
+- [x] Build the revised self-contained ZIP, verify its SHA-256, extract it, compare the executable hash, confirm the Vulkan runtime is present, and check all bundled relative links. The new archive contains no Azure SDK binaries, model weights, audio fixtures, or logs.
 - [ ] Inspect the revised floating window visually in a launched review package. The preview launch encountered an application approval timeout.
 
 ## Public `v0.1.0` decision
