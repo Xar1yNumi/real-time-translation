@@ -12,7 +12,8 @@ Status: **owner review package, not a public `v0.1.0` release**. The default des
 - [x] Produce the self-contained `win-x64` ZIP and SHA-256 in desktop `artifacts/`, extract it, launch the extracted app, and observe a real English-to-Chinese floating subtitle.
 - [x] Verify every relative link included in the archive and scan it for credentials, user audio, model weights, logs, and sample fixtures.
 - [ ] Confirm microphone signal and a real translated sentence from that source. The Realtek microphone session started, but its peak meter stayed at zero during speaker playback.
-- [ ] Confirm offline warning and recovery using an app-scoped network failure without disrupting the computer's other connections. The sandbox blocked a loopback proxy test before it reached the app.
+- [x] Confirm recovery in the same app session after an app-scoped proxy returned two connection failures and then forwarded the next request; a real Chinese subtitle appeared.
+- [x] Confirm the visible network warning during four consecutive proxy failures, then restore forwarding and observe a new real translation and cleared warning without restarting the app.
 
 ## Public `v0.1.0` decision
 
