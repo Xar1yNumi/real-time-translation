@@ -11,7 +11,7 @@ Status: **owner review package, not a public `v0.1.0` release**. The default des
 - [x] Run locked restore, format, Release build, and the complete automated suite after the Azure adapter split and network-warning fix: 170 passed, 11 conditional skips, zero failures.
 - [x] Produce the self-contained `win-x64` ZIP and SHA-256 in desktop `artifacts/`, extract it, launch the extracted app, and observe a real English-to-Chinese floating subtitle.
 - [x] Verify every relative link included in the archive and scan it for credentials, user audio, model weights, logs, and sample fixtures.
-- [ ] Confirm microphone signal and a real translated sentence from that source. The Realtek microphone session started, but its peak meter stayed at zero during speaker playback.
+- [x] Confirm microphone signal and a real translated sentence from that source. Prompted Chinese speech produced an English subtitle; the latter clause was inaccurate, so quality acceptance remains open.
 - [x] Confirm recovery in the same app session after an app-scoped proxy returned two connection failures and then forwarded the next request; a real Chinese subtitle appeared.
 - [x] Confirm the visible network warning during four consecutive proxy failures, then restore forwarding and observe a new real translation and cleared warning without restarting the app.
 
