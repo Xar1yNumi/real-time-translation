@@ -30,9 +30,11 @@ public sealed class CoordinatorStateChangedEventArgs(
     public string? Message => Error?.UserMessage;
 }
 
-public sealed class SubtitleChangedEventArgs(SubtitleState state) : EventArgs
+public sealed class SubtitleChangedEventArgs(
+    SubtitleState state, FinalUtteranceUpdate? completed = null) : EventArgs
 {
     public SubtitleState State { get; } = state;
+    public FinalUtteranceUpdate? Completed { get; } = completed;
 }
 
 public sealed class TranslationCoordinator : IAsyncDisposable
@@ -410,7 +412,8 @@ public sealed class TranslationCoordinator : IAsyncDisposable
             if (args.Update is not TranslationCanceledUpdate)
             {
                 subtitleState = subtitleState.Apply(args.Update);
-                SubtitleChanged?.Invoke(this, new SubtitleChangedEventArgs(subtitleState));
+                SubtitleChanged?.Invoke(this, new SubtitleChangedEventArgs(
+                    subtitleState, args.Update as FinalUtteranceUpdate));
                 return;
             }
         }

@@ -88,6 +88,25 @@ public sealed class TranslationCoordinatorTests
     }
 
     [Fact]
+    public async Task OlderFinalIsDeliveredForHistoryWithoutReplacingNewerPreview()
+    {
+        var session = new FakeTranslationSession();
+        var provider = new FakeTranslationProvider(session);
+        await using var coordinator = CreateCoordinator(provider, new FakeAudioSource());
+        var events = new List<SubtitleChangedEventArgs>();
+        coordinator.SubtitleChanged += (_, args) => events.Add(args);
+        await coordinator.StartAsync(Options, TestContext.Current.CancellationToken);
+
+        session.Emit(new PartialTranscriptUpdate("second", 2, "How are you"));
+        session.Emit(new FinalUtteranceUpdate("first", 1, "Hello", "你好", "en"));
+
+        Assert.Equal("How are you", events[^1].State.OriginalText);
+        Assert.True(events[^1].State.IsOriginalPartial);
+        Assert.Equal("first", events[^1].Completed?.UtteranceId);
+        Assert.Equal("你好", events[^1].Completed?.TranslatedText);
+    }
+
+    [Fact]
     public async Task WarningsReachCurrentSessionOnly()
     {
         var first = new FakeTranslationSession();

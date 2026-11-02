@@ -49,6 +49,29 @@ public sealed class SubtitleViewModelTests
     }
 
     [Fact]
+    public void LateFinalAppendsHistoryWithoutReplacingCurrentPreview()
+    {
+        var fixture = new Fixture();
+        using var model = fixture.Create();
+        var preview = SubtitleState.Empty.Apply(
+            new PartialTranscriptUpdate("second", 2, "How are you"));
+        var lateFinal = new FinalUtteranceUpdate("first", 1, "Hello", "你好", "en");
+
+        fixture.Controller.EmitSubtitle(preview);
+        fixture.Controller.EmitSubtitle(preview, lateFinal);
+        fixture.Controller.EmitSubtitle(preview, lateFinal);
+
+        Assert.Equal("How are you", model.OriginalText);
+        Assert.True(model.IsOriginalPartial);
+        var line = Assert.Single(model.History);
+        Assert.Equal("Hello", line.OriginalText);
+        Assert.Equal("你好", line.TranslatedText);
+
+        fixture.Controller.EmitSubtitle(SubtitleState.Empty);
+        Assert.Empty(model.History);
+    }
+
+    [Fact]
     public void RepeatedFinalDoesNotDuplicateHistoryAndNewSessionClearsIt()
     {
         var fixture = new Fixture();
@@ -346,8 +369,8 @@ public sealed class SubtitleViewModelTests
             StateChanged?.Invoke(this, new CoordinatorStateChangedEventArgs(state, error));
         }
 
-        public void EmitSubtitle(SubtitleState state) =>
-            SubtitleChanged?.Invoke(this, new SubtitleChangedEventArgs(state));
+        public void EmitSubtitle(SubtitleState state, FinalUtteranceUpdate? completed = null) =>
+            SubtitleChanged?.Invoke(this, new SubtitleChangedEventArgs(state, completed));
 
         public void EmitWarning(TranslationWarningUpdate warning) =>
             WarningReceived?.Invoke(this, new TranslationUpdateEventArgs(warning));

@@ -236,6 +236,20 @@ public sealed class SubtitleViewModel : INotifyPropertyChanged, IDisposable
                 return;
             }
 
+            if (args.Completed is { } completed)
+            {
+                var completedTranslation = IsSameLanguage(
+                    completed.DetectedLanguage, options.TargetLanguage)
+                    ? "与目标语言相同" : completed.TranslatedText;
+                AppendHistory(completed.UtteranceId,
+                    completed.OriginalText, completedTranslation);
+                if (!IsSameLanguage(completed.DetectedLanguage, options.TargetLanguage)
+                    && !string.IsNullOrWhiteSpace(completed.TranslatedText))
+                {
+                    ConnectionStatus = GetStatus(coordinator.State);
+                }
+            }
+
             if (args.State.Sequence < lastSequence)
             {
                 return;
@@ -252,19 +266,8 @@ public sealed class SubtitleViewModel : INotifyPropertyChanged, IDisposable
                 && !string.IsNullOrWhiteSpace(args.State.OriginalText)
                 && !string.IsNullOrWhiteSpace(args.State.UtteranceId))
             {
-                var line = new SubtitleLine(args.State.OriginalText, TranslatedText);
-                if (historyIndex.TryGetValue(args.State.UtteranceId, out var index))
-                {
-                    if (history[index] != line)
-                    {
-                        history[index] = line;
-                    }
-                }
-                else
-                {
-                    historyIndex.Add(args.State.UtteranceId, history.Count);
-                    history.Add(line);
-                }
+                AppendHistory(args.State.UtteranceId,
+                    args.State.OriginalText, TranslatedText);
             }
             if (!args.State.IsOriginalPartial
                 && !IsSameLanguage(args.State.DetectedLanguage, options.TargetLanguage)
@@ -273,6 +276,29 @@ public sealed class SubtitleViewModel : INotifyPropertyChanged, IDisposable
                 ConnectionStatus = GetStatus(coordinator.State);
             }
         });
+
+    private void AppendHistory(string utteranceId, string original, string translated)
+    {
+        if (string.IsNullOrWhiteSpace(utteranceId)
+            || string.IsNullOrWhiteSpace(original))
+        {
+            return;
+        }
+
+        var line = new SubtitleLine(original, translated);
+        if (historyIndex.TryGetValue(utteranceId, out var index))
+        {
+            if (history[index] != line)
+            {
+                history[index] = line;
+            }
+        }
+        else
+        {
+            historyIndex.Add(utteranceId, history.Count);
+            history.Add(line);
+        }
+    }
 
     private void OnWarningReceived(object? sender, TranslationUpdateEventArgs args) =>
         dispatcher.Invoke(() =>
