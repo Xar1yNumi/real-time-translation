@@ -69,6 +69,88 @@ public sealed class NoAzureTranslationSessionTests
     }
 
     [Fact]
+    public async Task PreviewAppearsBeforeSilenceAndFinalKeepsItsIdentityWithoutOnlinePreview()
+    {
+        var transcriber = new FakeTranscriber((pcm, _) => Task.FromResult(
+            new TranscriptionResult(TranscriptionStatus.Recognized,
+                pcm.Length < 50_000 ? "Hello" : "Hello again", "en")));
+        var translator = new FakeTranslator((_, _, _, _) => Task.FromResult("你好"));
+        await using var session = new NoAzureTranslationSession(
+            transcriber, translator, TargetLanguage.SimplifiedChinese);
+        var previewSeen = new TaskCompletionSource<PartialTranscriptUpdate>(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        var finalSeen = new TaskCompletionSource<FinalUtteranceUpdate>(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        session.UpdateReceived += (_, args) =>
+        {
+            if (args.Update is PartialTranscriptUpdate partial)
+            {
+                previewSeen.TrySetResult(partial);
+            }
+            if (args.Update is FinalUtteranceUpdate final)
+            {
+                finalSeen.TrySetResult(final);
+            }
+        };
+
+        await session.StartAsync(TestContext.Current.CancellationToken);
+        await session.WriteAudioAsync(Signal(1_100), TestContext.Current.CancellationToken);
+        var preview = await previewSeen.Task.WaitAsync(
+            TimeSpan.FromSeconds(5), TestContext.Current.CancellationToken);
+        Assert.Empty(translator.Calls);
+
+        await session.WriteAudioAsync(Signal(1_100), TestContext.Current.CancellationToken);
+        await session.WriteAudioAsync(new byte[19_200], TestContext.Current.CancellationToken);
+        var final = await finalSeen.Task.WaitAsync(
+            TimeSpan.FromSeconds(5), TestContext.Current.CancellationToken);
+
+        Assert.Equal(preview.UtteranceId, final.UtteranceId);
+        Assert.Equal(preview.Sequence, final.Sequence);
+        Assert.Equal("Hello again", final.OriginalText);
+        Assert.Single(translator.Calls);
+    }
+
+    [Fact]
+    public async Task NextPreviewCanArriveWhilePreviousFinalWaitsForOnlineTranslation()
+    {
+        var enteredTranslation = new TaskCompletionSource(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        var releaseTranslation = new TaskCompletionSource(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        var transcriber = new FakeTranscriber((_, _) => Task.FromResult(
+            new TranscriptionResult(TranscriptionStatus.Recognized, "Hello", "en")));
+        var translator = new FakeTranslator(async (_, _, _, token) =>
+        {
+            enteredTranslation.TrySetResult();
+            await releaseTranslation.Task.WaitAsync(token);
+            return "你好";
+        });
+        await using var session = new NoAzureTranslationSession(
+            transcriber, translator, TargetLanguage.SimplifiedChinese);
+        var nextPreview = new TaskCompletionSource<PartialTranscriptUpdate>(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        session.UpdateReceived += (_, args) =>
+        {
+            if (args.Update is PartialTranscriptUpdate partial && partial.Sequence == 2)
+            {
+                nextPreview.TrySetResult(partial);
+            }
+        };
+
+        await session.StartAsync(TestContext.Current.CancellationToken);
+        await session.WriteAudioAsync(Utterance(), TestContext.Current.CancellationToken);
+        await enteredTranslation.Task.WaitAsync(
+            TimeSpan.FromSeconds(5), TestContext.Current.CancellationToken);
+        await session.WriteAudioAsync(Signal(1_100), TestContext.Current.CancellationToken);
+
+        var preview = await nextPreview.Task.WaitAsync(
+            TimeSpan.FromSeconds(5), TestContext.Current.CancellationToken);
+        Assert.Equal(2, preview.Sequence);
+        Assert.Single(translator.Calls);
+        releaseTranslation.TrySetResult();
+    }
+
+    [Fact]
     public async Task PendingUtterancesAreBoundedToTwoAndDropsAreObservable()
     {
         var entered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -336,6 +418,17 @@ public sealed class NoAzureTranslationSessionTests
     {
         var pcm = new byte[(500 + 600) * 32];
         for (var index = 0; index < 500 * 32; index += 2)
+        {
+            BinaryPrimitives.WriteInt16LittleEndian(pcm.AsSpan(index, 2), 5_000);
+        }
+
+        return pcm;
+    }
+
+    private static byte[] Signal(int milliseconds)
+    {
+        var pcm = new byte[milliseconds * 32];
+        for (var index = 0; index < pcm.Length; index += 2)
         {
             BinaryPrimitives.WriteInt16LittleEndian(pcm.AsSpan(index, 2), 5_000);
         }

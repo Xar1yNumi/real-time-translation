@@ -10,6 +10,7 @@ public sealed class NoAzureTranslationSession : ITranslationSession
     private readonly object sync = new();
     private readonly Queue<QueuedUtterance> pending = new();
     private readonly SemaphoreSlim available = new(0);
+    private readonly SemaphoreSlim previewAvailable = new(0);
     private readonly CancellationTokenSource shutdown = new();
     private readonly PcmUtteranceSegmenter segmenter = new();
     private readonly IWhisperTranscriber transcriber;
@@ -18,7 +19,16 @@ public sealed class NoAzureTranslationSession : ITranslationSession
     private readonly Func<TimeSpan, CancellationToken, Task> delayAsync;
     private readonly string targetCode;
     private Task? worker;
+    private Task? previewWorker;
     private Task? disposeTask;
+    private QueuedPreview? pendingPreview;
+    private bool previewSignalQueued;
+    private CancellationTokenSource? previewInFlightCancellation;
+    private long previewRevision;
+    private long finalQueuedSequence;
+    private long activeUtteranceNumber;
+    private string? activeUtteranceId;
+    private long activeSequence;
     private long nextSequence;
     private int state;
 
@@ -88,6 +98,7 @@ public sealed class NoAzureTranslationSession : ITranslationSession
 
             state = 1;
             worker = Task.Run(() => ProcessPendingAsync(shutdown.Token), CancellationToken.None);
+            previewWorker = Task.Run(() => ProcessPreviewsAsync(shutdown.Token), CancellationToken.None);
         }
 
         return ValueTask.CompletedTask;
@@ -98,6 +109,7 @@ public sealed class NoAzureTranslationSession : ITranslationSession
     {
         cancellationToken.ThrowIfCancellationRequested();
         var warnings = new List<TranslationWarningUpdate>();
+        var previewsToCancel = new List<CancellationTokenSource>();
         lock (sync)
         {
             if (state != 1)
@@ -105,8 +117,44 @@ public sealed class NoAzureTranslationSession : ITranslationSession
                 throw new InvalidOperationException("Audio can only be written while the session is started.");
             }
 
-            foreach (var pcm in segmenter.Push(audio.Span))
+            foreach (var progress in segmenter.PushProgress(audio.Span))
             {
+                if (progress.UtteranceNumber != activeUtteranceNumber)
+                {
+                    activeUtteranceNumber = progress.UtteranceNumber;
+                    activeUtteranceId = Guid.NewGuid().ToString("N");
+                    activeSequence = Interlocked.Increment(ref nextSequence);
+                }
+
+                if (!progress.IsFinal)
+                {
+                    if (!previewSignalQueued)
+                    {
+                        previewSignalQueued = true;
+                        previewAvailable.Release();
+                    }
+
+                    pendingPreview = new QueuedPreview(
+                        activeUtteranceId!, activeSequence, progress.Pcm, ++previewRevision);
+                    if (previewInFlightCancellation is not null)
+                    {
+                        previewsToCancel.Add(previewInFlightCancellation);
+                    }
+
+                    continue;
+                }
+
+                finalQueuedSequence = activeSequence;
+                previewRevision++;
+                if (pendingPreview?.Sequence == activeSequence)
+                {
+                    pendingPreview = null;
+                }
+                if (previewInFlightCancellation is not null)
+                {
+                    previewsToCancel.Add(previewInFlightCancellation);
+                }
+
                 if (pending.Count == 2)
                 {
                     var dropped = pending.Dequeue();
@@ -118,10 +166,18 @@ public sealed class NoAzureTranslationSession : ITranslationSession
                     available.Release();
                 }
 
-                var sequence = Interlocked.Increment(ref nextSequence);
                 pending.Enqueue(new QueuedUtterance(
-                    Guid.NewGuid().ToString("N"), sequence, pcm));
+                    activeUtteranceId!, activeSequence, progress.Pcm));
+                activeUtteranceNumber = 0;
+                activeUtteranceId = null;
+                activeSequence = 0;
             }
+        }
+
+        foreach (var preview in previewsToCancel.Distinct())
+        {
+            try { preview.Cancel(); }
+            catch (ObjectDisposedException) { }
         }
 
         foreach (var warning in warnings)
@@ -135,6 +191,7 @@ public sealed class NoAzureTranslationSession : ITranslationSession
     public async ValueTask StopAsync(CancellationToken cancellationToken)
     {
         Task? running;
+        Task? runningPreview;
         lock (sync)
         {
             if (state == 3)
@@ -147,14 +204,20 @@ public sealed class NoAzureTranslationSession : ITranslationSession
                 state = 2;
                 shutdown.Cancel();
                 pending.Clear();
+                pendingPreview = null;
             }
 
             running = worker;
+            runningPreview = previewWorker;
         }
 
         if (running is not null)
         {
             await running.WaitAsync(cancellationToken).ConfigureAwait(false);
+        }
+        if (runningPreview is not null)
+        {
+            await runningPreview.WaitAsync(cancellationToken).ConfigureAwait(false);
         }
     }
 
@@ -182,7 +245,79 @@ public sealed class NoAzureTranslationSession : ITranslationSession
         }
 
         available.Dispose();
+        previewAvailable.Dispose();
         shutdown.Dispose();
+    }
+
+    private async Task ProcessPreviewsAsync(CancellationToken cancellationToken)
+    {
+        try
+        {
+            while (true)
+            {
+                await previewAvailable.WaitAsync(cancellationToken).ConfigureAwait(false);
+                QueuedPreview? preview;
+                CancellationTokenSource? previewCancellation = null;
+                lock (sync)
+                {
+                    preview = pendingPreview;
+                    pendingPreview = null;
+                    previewSignalQueued = false;
+                    if (preview is not null)
+                    {
+                        previewCancellation = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+                        previewInFlightCancellation = previewCancellation;
+                    }
+                }
+
+                if (preview is null || previewCancellation is null)
+                {
+                    continue;
+                }
+
+                try
+                {
+                    var result = await transcriber.TranscribeAsync(
+                        preview.Pcm, previewCancellation.Token).ConfigureAwait(false);
+                    if (result.Status == TranscriptionStatus.Recognized &&
+                        !string.IsNullOrWhiteSpace(result.Text))
+                    {
+                        lock (sync)
+                        {
+                            if (state == 1 && preview.Revision == previewRevision &&
+                                preview.Sequence > finalQueuedSequence &&
+                                !shutdown.IsCancellationRequested)
+                            {
+                                UpdateReceived?.Invoke(this, new TranslationUpdateEventArgs(
+                                    new PartialTranscriptUpdate(
+                                        preview.Id, preview.Sequence, result.Text)));
+                            }
+                        }
+                    }
+                }
+                catch (OperationCanceledException) when (previewCancellation.IsCancellationRequested)
+                {
+                }
+                finally
+                {
+                    lock (sync)
+                    {
+                        if (ReferenceEquals(previewInFlightCancellation, previewCancellation))
+                        {
+                            previewInFlightCancellation = null;
+                        }
+                    }
+                    previewCancellation.Dispose();
+                }
+            }
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+        }
+        catch (Exception)
+        {
+            RaiseFailure(AppErrorCode.Unknown);
+        }
     }
 
     private async Task ProcessPendingAsync(CancellationToken cancellationToken)
@@ -290,4 +425,5 @@ public sealed class NoAzureTranslationSession : ITranslationSession
     }
 
     private sealed record QueuedUtterance(string Id, long Sequence, byte[] Pcm);
+    private sealed record QueuedPreview(string Id, long Sequence, byte[] Pcm, long Revision);
 }
