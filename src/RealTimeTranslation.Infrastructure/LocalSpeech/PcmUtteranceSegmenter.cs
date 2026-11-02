@@ -2,11 +2,14 @@ using System.Buffers.Binary;
 
 namespace RealTimeTranslation.Infrastructure.LocalSpeech;
 
+internal sealed record PcmSpeechProgress(long UtteranceNumber, byte[] Pcm, bool IsFinal);
+
 internal sealed class PcmUtteranceSegmenter : IDisposable
 {
     private const int FrameBytes = 640; // 20 ms at 16 kHz, PCM16 mono.
     private const int PreRollFrames = 10;
     private const int MinimumVoicedFrames = 20;
+    private const int PreviewVoicedFrames = 40;
     private const int TrailingSilenceFrames = 30;
     private const int MaximumUtteranceBytes = 256_000;
     private const int VoiceRmsThreshold = 400;
@@ -17,14 +20,21 @@ internal sealed class PcmUtteranceSegmenter : IDisposable
     private int pendingCount;
     private int voicedFrames;
     private int silentFrames;
+    private int lastPreviewVoicedFrames;
+    private long nextUtteranceNumber;
+    private long currentUtteranceNumber;
     private bool disposed;
 
     internal int BufferedBytes => pendingCount + (preRoll.Count * FrameBytes) + (int)(current?.Length ?? 0);
 
-    public IReadOnlyList<byte[]> Push(ReadOnlySpan<byte> pcm16Mono)
+    public IReadOnlyList<byte[]> Push(ReadOnlySpan<byte> pcm16Mono) =>
+        PushProgress(pcm16Mono).Where(progress => progress.IsFinal)
+            .Select(progress => progress.Pcm).ToArray();
+
+    public IReadOnlyList<PcmSpeechProgress> PushProgress(ReadOnlySpan<byte> pcm16Mono)
     {
         ObjectDisposedException.ThrowIf(disposed, this);
-        var utterances = new List<byte[]>();
+        var progress = new List<PcmSpeechProgress>();
         while (!pcm16Mono.IsEmpty)
         {
             var count = Math.Min(FrameBytes - pendingCount, pcm16Mono.Length);
@@ -33,27 +43,26 @@ internal sealed class PcmUtteranceSegmenter : IDisposable
             pcm16Mono = pcm16Mono[count..];
             if (pendingCount == FrameBytes)
             {
-                ProcessFrame(pendingFrame, utterances);
+                ProcessFrame(pendingFrame, progress);
                 pendingCount = 0;
             }
         }
 
-        return utterances;
+        return progress;
     }
 
     public byte[]? Flush()
     {
         ObjectDisposedException.ThrowIf(disposed, this);
-        var completed = new List<byte[]>(1);
+        var completed = new List<PcmSpeechProgress>(1);
         if (pendingCount >= 2)
         {
             var evenCount = pendingCount & ~1;
             ProcessFrame(pendingFrame.AsSpan(0, evenCount), completed);
         }
 
-        var utterance = completed.Count > 0
-            ? completed[0]
-            : voicedFrames >= MinimumVoicedFrames ? current?.ToArray() : null;
+        var utterance = completed.FirstOrDefault(progress => progress.IsFinal)?.Pcm
+            ?? (voicedFrames >= MinimumVoicedFrames ? current?.ToArray() : null);
         Reset();
         preRoll.Clear();
         pendingCount = 0;
@@ -73,7 +82,7 @@ internal sealed class PcmUtteranceSegmenter : IDisposable
         pendingCount = 0;
     }
 
-    private void ProcessFrame(ReadOnlySpan<byte> frame, List<byte[]>? utterances)
+    private void ProcessFrame(ReadOnlySpan<byte> frame, List<PcmSpeechProgress>? progress)
     {
         var isVoice = HasVoice(frame);
         if (current is null)
@@ -85,6 +94,7 @@ internal sealed class PcmUtteranceSegmenter : IDisposable
             }
 
             current = new MemoryStream(MaximumUtteranceBytes);
+            currentUtteranceNumber = ++nextUtteranceNumber;
             foreach (var preceding in preRoll)
             {
                 current.Write(preceding);
@@ -98,6 +108,13 @@ internal sealed class PcmUtteranceSegmenter : IDisposable
         {
             voicedFrames++;
             silentFrames = 0;
+            if (progress is not null && voicedFrames >= PreviewVoicedFrames
+                && voicedFrames - lastPreviewVoicedFrames >= PreviewVoicedFrames)
+            {
+                progress.Add(new PcmSpeechProgress(
+                    currentUtteranceNumber, current.ToArray(), false));
+                lastPreviewVoicedFrames = voicedFrames;
+            }
         }
         else
         {
@@ -108,7 +125,8 @@ internal sealed class PcmUtteranceSegmenter : IDisposable
         {
             if (voicedFrames >= MinimumVoicedFrames)
             {
-                utterances?.Add(current.ToArray());
+                progress?.Add(new PcmSpeechProgress(
+                    currentUtteranceNumber, current.ToArray(), true));
             }
 
             Reset();
@@ -147,5 +165,7 @@ internal sealed class PcmUtteranceSegmenter : IDisposable
         current = null;
         voicedFrames = 0;
         silentFrames = 0;
+        lastPreviewVoicedFrames = 0;
+        currentUtteranceNumber = 0;
     }
 }

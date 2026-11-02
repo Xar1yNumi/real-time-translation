@@ -80,6 +80,35 @@ public sealed class PcmUtteranceSegmenterTests
         Assert.InRange(utterance.Length, 16_000, 40_000);
     }
 
+    [Fact]
+    public void ContinuousSpeechProducesUpdatedPreviewBeforeFinalWithStableIdentity()
+    {
+        using var segmenter = new PcmUtteranceSegmenter();
+
+        var first = Assert.Single(segmenter.PushProgress(Signal(1_100, 5_000)));
+        Assert.False(first.IsFinal);
+        Assert.InRange(first.Pcm.Length, 25_600, 40_000);
+
+        var second = Assert.Single(segmenter.PushProgress(Signal(1_100, 5_000)));
+        Assert.False(second.IsFinal);
+        Assert.Equal(first.UtteranceNumber, second.UtteranceNumber);
+        Assert.True(second.Pcm.Length > first.Pcm.Length);
+
+        var final = Assert.Single(segmenter.PushProgress(new byte[19_200]));
+        Assert.True(final.IsFinal);
+        Assert.Equal(first.UtteranceNumber, final.UtteranceNumber);
+        Assert.True(final.Pcm.Length > second.Pcm.Length);
+    }
+
+    [Fact]
+    public void ShortNoiseNeverProducesPreviewOrFinal()
+    {
+        using var segmenter = new PcmUtteranceSegmenter();
+
+        Assert.Empty(segmenter.PushProgress(Signal(200, 5_000)));
+        Assert.Empty(segmenter.PushProgress(new byte[19_200]));
+    }
+
     private static byte[] Signal(int milliseconds, short amplitude)
     {
         var data = new byte[milliseconds * 32];
