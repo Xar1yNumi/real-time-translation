@@ -19,6 +19,8 @@ On Windows x64, extract the review ZIP and run `RealTimeTranslation.Desktop.exe`
 3. Select **System audio** for the default Windows output stream or **Microphone** for nearby speech. Select Chinese, English, or Russian as the target.
 4. Click **Start translation**. Initial GPU preparation may take about 20 seconds; capture begins afterward. Move the pointer over the floating window for Pause, Return to settings, and Close. Drag the window or scroll to review this session. A new session clears the history.
 
+While someone speaks, the bottom of the overlay shows a revisable **original-text preview**. Once the phrase and online translation finish, the original and translation are appended to the session history above. Previews stay local and do not repeatedly call MyMemory.
+
 For calls, choose system audio if the other person's voice plays through your default output device. Other sounds in the same stream may also be captured. The app cannot isolate one application or speaker.
 
 ## Build from source
@@ -38,6 +40,6 @@ The regular suite skips live service, audio-fixture, and 30-minute capture tests
 
 The app does not intentionally save audio, transcripts, translations, or subtitle history. Only recognized text goes to MyMemory; its [terms](https://mymemory.translated.net/terms-and-conditions) apply. Avoid confidential conversations in this trial. Pause and Close stop capture. See [privacy details](docs/privacy.md).
 
-The app prefers Vulkan acceleration on compatible GPUs and retains a CPU runtime otherwise. Warmed recognition took around half a second on the three test clips on this PC; complete translation still waits for a phrase boundary and the network, so latency is not fixed. A bounded queue drops older pending phrases with a warning when processing falls behind. Network requests have limited retries; quota exhaustion ends the session. Short fragments can produce unnatural translations. The current package is for owner review; a clean Windows machine and longer service checks remain open.
+The app prefers Vulkan acceleration on compatible GPUs and retains a CPU runtime otherwise. In three real speaker-loopback runs on this PC, the first original-text preview appeared at about 1.6 seconds; final translations for the same five-second English clip appeared between 7.88 and 12.36 seconds. Network response time varied substantially, so this is not yet a consistently low-latency experience. A bounded queue drops older pending phrases with a warning when processing falls behind. Network requests have limited retries; quota exhaustion ends the session. Short fragments can produce unnatural translations. See the [progressive subtitle measurements](docs/reports/2026-11-02-progressive-subtitle-trial.md). The current package is for owner review; a clean Windows machine and longer service checks remain open.
 
 This project is [MIT licensed](LICENSE). See [third-party notices](THIRD_PARTY_NOTICES.md), [contributing](CONTRIBUTING.md), [security](SECURITY.md), and the [release checklist](docs/release-checklist.md).

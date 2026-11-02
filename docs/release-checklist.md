@@ -18,6 +18,11 @@ Status: **owner review package, not a public `v0.1.0` release**. The default des
 - [x] Benchmark GPU recognition on English, Chinese, and Russian clips; run all three opt-in online audio chains after preparation. See the revision in the [trial report](feasibility/no-azure-trial-report.md).
 - [x] Build the revised self-contained ZIP, verify its SHA-256, extract it, compare the executable hash, confirm the Vulkan runtime is present, and check all bundled relative links. The new archive contains no Azure SDK binaries, model weights, audio fixtures, or logs.
 - [ ] Inspect the revised floating window visually in a launched review package. The preview launch encountered an application approval timeout.
+- [x] Add original-text previews before phrase end without sending them to MyMemory; keep a bounded latest-only preview task and preserve final subtitle history when earlier translations arrive late.
+- [x] Rebuild Release with 0 warnings/errors; run 193 regular tests: 179 passed, 14 conditional skips, 0 failures; verify C# format.
+- [x] Run timed English and Chinese WAV tests and a real default-speaker loopback test. Preview appeared around 1.6 seconds; online final timing varied. See the [progressive trial report](reports/2026-11-02-progressive-subtitle-trial.md).
+- [x] Build and extract `artifacts/RealTimeTranslation-noazure-progressive-20261102-win-x64.zip`; archive and executable hashes match, and no Azure SDK, audio sample, model weight, or log file is bundled.
+- [ ] Visually inspect the new progressive review package. Launch showed the application's single-instance notice because another instance was already running; no current overlay rendering was observed.
 
 ## Public `v0.1.0` decision
 
