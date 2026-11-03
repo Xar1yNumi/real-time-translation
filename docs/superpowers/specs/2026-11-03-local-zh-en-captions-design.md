@@ -1,6 +1,6 @@
 # 中英本地互译与连续字幕设计（2026-11-03）
 
-状态：按项目负责人反馈修订，待确认。
+状态：依据 LinguaRelay 源码和实测资料修订，待项目负责人确认。
 
 ## 目标与范围
 
@@ -17,6 +17,12 @@
 3. 纯 .NET 直接推理机器翻译模型：发布形式简单，但编码器／解码器、分词和模型转换需新实现并重新验证，首阶段风险较大。
 
 只借鉴 LinguaRelay 的公开架构与测试方法；不复制其源码。候选翻译模型为 MIT 许可的 `facebook/m2m100_418M`，以 CTranslate2 常驻进程推理中英两个方向。模型和运行库版本、来源、哈希、许可在模型下载任务中固定；模型文件不提交 Git。若同机原型达不到质量、内存与时延要求，不将它接入默认程序，应先报告测试数据再调整模型选择。这里的模型只是技术选择，不增加用户操作步骤。
+
+### 为什么选择这个候选方案
+
+LinguaRelay 的[翻译实现](https://github.com/MuzeAnisichael/LinguaRelay/blob/main/src/lingua_relay/mt/m2m100.py)使用一个常驻 CTranslate2 模型处理中英等语言，并用 SentencePiece 编解码；[模型清单](https://github.com/MuzeAnisichael/LinguaRelay/blob/main/packaging/model-manifest.json)记录整个 Small 识别＋翻译包约 1.47 GB，其中翻译权重约 970 MB，模型权重在安装时另行下载。它的[双向小样本报告](https://github.com/MuzeAnisichael/LinguaRelay/blob/main/docs/benchmarks/m3-m2m100-cuda-final.json)在 RTX 5070 Laptop 8 GB 上测得文字翻译中→英 P50 约 77 ms、英→中约 66 ms；每方向只有 8 句，未包含音频识别、分句或屏幕绘制。当前电脑为 RTX 3060 Laptop 6 GB，不能照搬这些速度或质量结论。
+
+因此先在当前电脑验证这个模型的中英两个方向、简体中文、冷启动、热运行、显存／内存占用和断网调用，再决定是否接入。现有 Whisper 语音识别继续负责声音→文字；本地文字翻译不会自动修复歌词或嘈杂音频的识别错误。若实测不达标，保留当前联网试用版作为独立可用入口，并提交数据后调整本地翻译模型，不能用原文或模拟返回冒充译文。
 
 ## 数据流
 

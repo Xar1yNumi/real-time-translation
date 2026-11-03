@@ -20,12 +20,12 @@
 
 ## Task 1：中英文自动识别与目标语言约束
 
-**文件：** `src/RealTimeTranslation.Infrastructure/Translation/NoAzureTranslationSession.cs`、`src/RealTimeTranslation.Core/Languages.cs`、`tests/RealTimeTranslation.Infrastructure.Tests/NoAzureTranslationSessionTests.cs`。
+**文件：** 新建 `src/RealTimeTranslation.Infrastructure/LocalTranslation/BilingualRoute.cs`、`tests/RealTimeTranslation.Infrastructure.Tests/BilingualRouteTests.cs`；现有联网会话保持可运行。
 
-**接口：** 保留 `IWhisperTranscriber.TranscribeAsync` 的自动检测；为新本地会话增加只接受 `zh`、`en` 的结果分类与目标语言路由，不改变旧 Azure 适配器。
+**接口：** 保留 `IWhisperTranscriber.TranscribeAsync` 的自动检测；新增 `BilingualRoute.Resolve(string detectedSource, TargetLanguage target)`，结果为“翻译成 zh／en”“同语种只显示原文”或“不支持”，供新本地会话使用。
 
-- [ ] 增加中文、英文、俄文及识别失败测试：本地会话只对中英文生成译文请求；运行目标测试确认缺少该约束而失败。
-- [ ] 在本地会话路由处限制中英两方向，中文原文和译文保持简体；用户只选择目标语言，源语言继续自动检测。
+- [ ] 增加中文、英文、俄文及识别失败测试：只有中英异语种产生翻译路由；运行目标测试确认新路由缺失而失败。
+- [ ] 实现最小路由判定；用户只选择目标语言，源语言继续由 Whisper 自动检测。现有联网试用版的俄语路径不在本任务中改动。
 - [ ] 编译解决方案，运行目标测试和全部测试，`dotnet format --verify-no-changes`，独立提交。
 
 ## Task 2：本地机器翻译可行性门槛
@@ -34,9 +34,9 @@
 
 **接口：** 输入方向与 UTF-8 文本，输出译文、模型版本、冷启动／热推理耗时和错误，不依赖在线 API。
 
-- [ ] 固定 `facebook/m2m100_418M` 提交、CTranslate2／SentencePiece／Python 版本，核对模型、权重和依赖许可证与哈希；准备两方向人工可读短句及空句、长句测试。
+- [ ] 以 LinguaRelay 的模型清单和实测为参考，固定 `facebook/m2m100_418M` 提交、CTranslate2／SentencePiece／Python 版本，独立核对本项目转换产物的来源、哈希与许可；准备两方向人工可读短句及空句、长句测试。
 - [ ] 用 `uv` 准备隔离运行环境，转换并校验模型；在当前电脑分别测中→英、英→中冷启动、热运行 P50/P95、内存和断网调用。
-- [ ] 只有两方向译文可读、断网成功且处理速度可供实时使用，才通过接入门槛；否则提交失败证据并调整模型方案，不把未经验证的翻译器接到 UI。
+- [ ] 只有两方向译文可读、简体输出正确、断网成功、且当前 RTX 3060／16 GB 电脑能同时运行 Whisper 与翻译模型，才通过接入门槛；否则提交失败证据并调整模型方案，保留现有在线试用入口，不把未经验证的翻译器接到默认 UI。
 - [ ] 运行探针和许可检查，独立提交源码与指标报告，忽略权重和环境文件。
 
 ## Task 3：常驻本地翻译进程与会话接入
