@@ -32,8 +32,42 @@ public sealed class MyMemoryTranslatorTests
         Assert.Equal("api.mymemory.translated.net", requestedUri?.Host);
         Assert.Equal("/get", requestedUri?.AbsolutePath);
         Assert.Contains("q=hello%20%26%20%D0%BC%D0%B8%D1%80", requestedUri!.Query, StringComparison.OrdinalIgnoreCase);
-        Assert.Contains($"langpair={source}%7C{target}", requestedUri.Query, StringComparison.OrdinalIgnoreCase);
+        var serviceSource = source == "zh" ? "zh-CN" : source;
+        var serviceTarget = target == "zh" ? "zh-CN" : target;
+        Assert.Contains($"langpair={serviceSource}%7C{serviceTarget}", requestedUri.Query,
+            StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("key=", requestedUri.Query, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task ChineseTargetRequestsSimplifiedChineseLocale()
+    {
+        Uri? requestedUri = null;
+        using var client = Client((request, _) =>
+        {
+            requestedUri = request.RequestUri;
+            return Task.FromResult(Json("{\"responseStatus\":200,\"responseData\":{\"translatedText\":\"翻译软件\"}}"));
+        });
+        var translator = new MyMemoryTranslator(client);
+
+        await translator.TranslateAsync("translation software", "en", "zh",
+            TestContext.Current.CancellationToken);
+
+        Assert.Contains("langpair=en%7Czh-CN", requestedUri!.Query,
+            StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task ChineseTranslationUsesSimplifiedCharactersEvenWhenServiceReturnsTraditional()
+    {
+        using var client = Client((_, _) => Task.FromResult(Json(
+            "{\"responseStatus\":200,\"responseData\":{\"translatedText\":\"軟體正在處理語音\"}}")));
+        var translator = new MyMemoryTranslator(client);
+
+        var result = await translator.TranslateAsync("The software processes speech", "en", "zh",
+            TestContext.Current.CancellationToken);
+
+        Assert.Equal("软件正在处理语音", result);
     }
 
     [Fact]

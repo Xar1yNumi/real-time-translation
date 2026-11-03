@@ -1,4 +1,5 @@
 using Whisper.net;
+using RealTimeTranslation.Infrastructure.Text;
 
 namespace RealTimeTranslation.Infrastructure.LocalSpeech;
 
@@ -101,6 +102,10 @@ public sealed class WhisperTranscriber : IWhisperTranscriber
             }
 
             var text = string.Join(" ", nonempty.Select(segment => segment.Text.Trim()));
+            if (language == "zh")
+            {
+                text = ChineseText.ToSimplified(text);
+            }
             return new TranscriptionResult(TranscriptionStatus.Recognized, text, language);
         }
         finally

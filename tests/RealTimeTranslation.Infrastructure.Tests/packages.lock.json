@@ -112,6 +112,11 @@
           "System.Memory.Data": "1.0.2"
         }
       },
+      "System.Formats.Cbor": {
+        "type": "Transitive",
+        "resolved": "8.0.0",
+        "contentHash": "pOFOuygoSX5Tj82uaDTFQ8ipVOKJWSZtgSdR/uCvvXtnV5z6UbbUWFsaQ/8sBerEstvVjX1DyPcVM7ua7GWHqw=="
+      },
       "System.Memory.Data": {
         "type": "Transitive",
         "resolved": "6.0.0",
@@ -200,6 +205,11 @@
           "xunit.v3.runner.common": "[4.0.2]"
         }
       },
+      "ZstdSharp.Port": {
+        "type": "Transitive",
+        "resolved": "0.8.8",
+        "contentHash": "UIDFkA5DC3en3tOJ3Mof11yBx9kUQLsaeo/oFdvN6Bbkr9E9+VCqfIadHci8cu+I51K2Sl7XYWVl2R/mA75NBQ=="
+      },
       "realtimetranslation.azure": {
         "type": "Project",
         "dependencies": {
@@ -215,6 +225,7 @@
         "type": "Project",
         "dependencies": {
           "NAudio": "[3.3.0, )",
+          "OpenccNetLib": "[1.7.0, )",
           "RealTimeTranslation.Core": "[1.0.0, )",
           "Whisper.net": "[1.9.1, )",
           "Whisper.net.Runtime": "[1.9.1, )",
@@ -240,6 +251,16 @@
           "NAudio.Midi": "3.3.0",
           "NAudio.Wasapi": "3.3.0",
           "NAudio.WinMM": "3.3.0"
+        }
+      },
+      "OpenccNetLib": {
+        "type": "CentralTransitive",
+        "requested": "[1.7.0, )",
+        "resolved": "1.7.0",
+        "contentHash": "EV7XauU5hAlEiCiqAkWgSe5O8Stnym1DwOEv9wXs0ca8JvfrYG2GvEaCy038bd/PsfTmTUZ4ZO4/pB6YwvDSYw==",
+        "dependencies": {
+          "System.Formats.Cbor": "8.0.0",
+          "ZstdSharp.Port": "0.8.8"
         }
       },
       "Whisper.net": {

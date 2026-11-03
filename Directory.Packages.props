@@ -5,6 +5,7 @@
   <ItemGroup>
     <PackageVersion Include="Microsoft.CognitiveServices.Speech" Version="1.53.0" />
     <PackageVersion Include="NAudio" Version="3.3.0" />
+    <PackageVersion Include="OpenccNetLib" Version="1.7.0" />
     <PackageVersion Include="Whisper.net" Version="1.9.1" />
     <PackageVersion Include="Whisper.net.Runtime" Version="1.9.1" />
     <PackageVersion Include="Whisper.net.Runtime.Vulkan" Version="1.9.1" />

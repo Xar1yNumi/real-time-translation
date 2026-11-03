@@ -8,6 +8,8 @@ Windows desktop subtitles for spoken Chinese, English, and Russian. Choose one s
 
 The default app needs **no Azure account, API key, or other registration**. It recognizes speech locally with a multilingual Whisper model, then sends recognized text over HTTPS to MyMemory. An internet connection is required while translating. First use downloads and verifies a roughly 190 MB model; later launches reuse it. Audio stays on your computer. You must confirm the text-sharing notice before starting.
 
+Chinese results are requested with the `zh-CN` locale, and Chinese recognized text and translated text are converted to simplified characters locally. Songs with strong backing tracks can still be much harder for the current speech model than spoken words. Check that the selected system audio device actually carries sound before judging recognition accuracy.
+
 MyMemory allows [5,000 anonymous characters per day](https://mymemory.translated.net/doc/usagelimits.php) and [500 UTF-8 bytes per request](https://mymemory.translated.net/doc/spec.php). Service availability and translation quality vary. This trial has not passed a 30-minute service test and is not a public `v0.1.0` release. Optional Azure code remains in `RealTimeTranslation.Azure` but is absent from the default desktop package.
 
 ## Try it

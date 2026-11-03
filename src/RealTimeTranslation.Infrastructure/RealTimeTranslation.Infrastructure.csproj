@@ -6,6 +6,7 @@
 
   <ItemGroup>
     <PackageReference Include="NAudio" />
+    <PackageReference Include="OpenccNetLib" />
     <PackageReference Include="Whisper.net" />
     <PackageReference Include="Whisper.net.Runtime" />
     <PackageReference Include="Whisper.net.Runtime.Vulkan" />

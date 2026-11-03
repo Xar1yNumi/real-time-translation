@@ -55,6 +55,19 @@ public sealed class WhisperTranscriberTests
     }
 
     [Fact]
+    public async Task ChineseRecognitionUsesSimplifiedCharacters()
+    {
+        var engine = new FakeInference([new("軟體正在處理語音", "zh")]);
+        await using var transcriber = await WhisperTranscriber.CreateAsync(
+            new FakeModelStore(), engine, TestContext.Current.CancellationToken);
+
+        var result = await transcriber.TranscribeAsync(
+            new byte[32_000], TestContext.Current.CancellationToken);
+
+        Assert.Equal("软件正在处理语音", result.Text);
+    }
+
+    [Fact]
     public async Task CancellationDoesNotRunInference()
     {
         var engine = new FakeInference();

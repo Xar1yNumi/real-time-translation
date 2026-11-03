@@ -8,6 +8,8 @@
 
 默认程序**不需要 Azure 账号、API Key 或其他注册**。Whisper 模型在本机识别语音，识别后的文字经 HTTPS 发给 MyMemory 获取译文。翻译时必须联网。第一次使用需下载并校验约 190 MB 的语音模型，以后可复用；音频不上传。开始前须确认界面上的文字发送说明。
 
+选择“简体中文”时，在线翻译请求明确使用 `zh-CN`，中文识别原文与中文译文会在本机统一转为简体。伴奏较强的歌曲仍可能显著降低当前语音模型的识别准确率；应以所选系统音源确实有声音为前提评估。
+
 MyMemory [匿名额度为每天 5,000 字符](https://mymemory.translated.net/doc/usagelimits.php)，[单次请求最多 500 UTF-8 字节](https://mymemory.translated.net/doc/spec.php)。服务可用性和译文质量会变化。本试用版尚未通过 30 分钟连续服务验收，也不是公开的 `v0.1.0` 正式版。Azure 代码保留在可选的 `RealTimeTranslation.Azure` 项目中，默认桌面包不包含 Azure SDK。
 
 ## 如何使用

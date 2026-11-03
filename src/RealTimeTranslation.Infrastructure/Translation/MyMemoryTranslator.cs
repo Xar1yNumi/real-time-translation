@@ -2,6 +2,7 @@ using System.Net;
 using System.Text;
 using System.Text.Json;
 using RealTimeTranslation.Core;
+using RealTimeTranslation.Infrastructure.Text;
 
 namespace RealTimeTranslation.Infrastructure.Translation;
 
@@ -60,7 +61,7 @@ public sealed class MyMemoryTranslator : IMyMemoryTranslator
         using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         timeout.CancelAfter(requestTimeout);
         var query = Uri.EscapeDataString(text);
-        var pair = Uri.EscapeDataString($"{source}|{target}");
+        var pair = Uri.EscapeDataString($"{ToServiceLocale(source)}|{ToServiceLocale(target)}");
         using var request = new HttpRequestMessage(HttpMethod.Get,
             $"https://api.mymemory.translated.net/get?q={query}&langpair={pair}");
 
@@ -111,7 +112,12 @@ public sealed class MyMemoryTranslator : IMyMemoryTranslator
             }
 
             var result = WebUtility.HtmlDecode(translated.GetString())?.Trim();
-            return !string.IsNullOrWhiteSpace(result) ? result : throw ServiceFailure();
+            if (string.IsNullOrWhiteSpace(result))
+            {
+                throw ServiceFailure();
+            }
+
+            return target == "zh" ? ChineseText.ToSimplified(result) : result;
         }
         catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
         {
@@ -135,6 +141,8 @@ public sealed class MyMemoryTranslator : IMyMemoryTranslator
     }
 
     private static bool IsSupported(string language) => language is "zh" or "en" or "ru";
+
+    private static string ToServiceLocale(string language) => language == "zh" ? "zh-CN" : language;
 
     private static bool IsQuotaResponse(JsonElement root)
     {

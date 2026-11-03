@@ -5,11 +5,14 @@ The default Windows trial includes these components:
 | Component | Version | License and attribution |
 | --- | --- | --- |
 | [NAudio](https://github.com/naudio/NAudio) | 3.3.0 | MIT; Copyright © Mark Heath 2026 |
+| [OpenccNetLib](https://github.com/laisuk/OpenccNet) | 1.7.0 | MIT; Chinese script and regional phrase conversion. Its embedded OpenCC dictionaries are Apache-2.0; see [the bundled dictionary license](third_party_licenses/OpenCC-Apache-2.0.txt). |
+| [ZstdSharp.Port](https://github.com/oleg-st/ZstdSharp) | 0.8.8 | MIT; Copyright © Oleg Stepanischev 2026; OpenccNetLib dictionary decompression. |
+| [System.Formats.Cbor](https://github.com/dotnet/runtime) | 8.0.0 | MIT; Copyright © Microsoft Corporation; OpenccNetLib dependency. |
 | [Whisper.net](https://github.com/sandrohanea/whisper.net) | 1.9.1 | MIT; Copyright (c) 2024 sandrohanea |
 | [Whisper.net.Runtime / whisper.cpp](https://github.com/ggml-org/whisper.cpp) | 1.9.1 | MIT; Copyright (c) 2023-2026 The ggml authors |
 | [Whisper.net.Runtime.Vulkan / whisper.cpp](https://github.com/sandrohanea/whisper.net) | 1.9.1 | MIT; Vulkan accelerated runtime of whisper.cpp |
 
-The MIT permission notice for these components follows. Each upstream repository contains its own license and further attribution information.
+The MIT permission notice for the MIT components follows. OpenCC dictionary data is covered separately by the bundled Apache-2.0 license. Each upstream repository contains its own license and further attribution information.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
 
