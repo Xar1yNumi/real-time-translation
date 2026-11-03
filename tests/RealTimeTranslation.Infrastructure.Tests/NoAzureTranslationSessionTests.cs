@@ -1,6 +1,7 @@
 using System.Buffers.Binary;
 using RealTimeTranslation.Core;
 using RealTimeTranslation.Infrastructure.LocalSpeech;
+using RealTimeTranslation.Infrastructure.LocalTranslation;
 using RealTimeTranslation.Infrastructure.Translation;
 
 namespace RealTimeTranslation.Infrastructure.Tests;
@@ -414,6 +415,58 @@ public sealed class NoAzureTranslationSessionTests
         Assert.Equal(0, transcriber.DisposeCount);
     }
 
+    [Theory]
+    [InlineData("en", "Hello", TargetLanguage.SimplifiedChinese, "你好")]
+    [InlineData("zh", "你好", TargetLanguage.English, "Hello")]
+    public async Task LocalSessionTranslatesOnlyFinalRecognizedText(
+        string language, string original, TargetLanguage target, string translated)
+    {
+        var transcriber = new FakeTranscriber((_, _) => Task.FromResult(
+            new TranscriptionResult(TranscriptionStatus.Recognized, original, language)));
+        var translator = new FakeLocalTranslator((_, _, _) => Task.FromResult(translated));
+        await using var session = new NoAzureTranslationSession(transcriber, translator, target);
+        var finalSeen = new TaskCompletionSource<FinalUtteranceUpdate>(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        session.UpdateReceived += (_, args) =>
+        {
+            if (args.Update is FinalUtteranceUpdate final) finalSeen.TrySetResult(final);
+        };
+        await session.StartAsync(TestContext.Current.CancellationToken);
+        await session.WriteAudioAsync(Utterance(), TestContext.Current.CancellationToken);
+        var result = await finalSeen.Task.WaitAsync(TimeSpan.FromSeconds(5), TestContext.Current.CancellationToken);
+        Assert.Equal(translated, result.TranslatedText);
+        Assert.Equal((original, language), Assert.Single(translator.Calls));
+    }
+
+    [Fact]
+    public async Task LocalSessionIgnoresLateTranslationAfterStop()
+    {
+        var entered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var release = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var transcriber = new FakeTranscriber((_, _) => Task.FromResult(
+            new TranscriptionResult(TranscriptionStatus.Recognized, "Hello", "en")));
+        var translator = new FakeLocalTranslator(async (_, _, _) =>
+        {
+            entered.TrySetResult();
+            await release.Task;
+            return "你好";
+        });
+        await using var session = new NoAzureTranslationSession(
+            transcriber, translator, TargetLanguage.SimplifiedChinese);
+        var finals = 0;
+        session.UpdateReceived += (_, args) =>
+        {
+            if (args.Update is FinalUtteranceUpdate) Interlocked.Increment(ref finals);
+        };
+        await session.StartAsync(TestContext.Current.CancellationToken);
+        await session.WriteAudioAsync(Utterance(), TestContext.Current.CancellationToken);
+        await entered.Task.WaitAsync(TimeSpan.FromSeconds(5), TestContext.Current.CancellationToken);
+        var stopping = session.StopAsync(TestContext.Current.CancellationToken);
+        release.TrySetResult();
+        await stopping;
+        Assert.Equal(0, finals);
+    }
+
     private static byte[] Utterance()
     {
         var pcm = new byte[(500 + 600) * 32];
@@ -464,6 +517,19 @@ public sealed class NoAzureTranslationSessionTests
         {
             Calls.Add((text, source, target));
             return translate(text, source, target, cancellationToken);
+        }
+    }
+
+    private sealed class FakeLocalTranslator(
+        Func<string, string, CancellationToken, Task<string>> translate)
+        : ILocalTextTranslator
+    {
+        public List<(string Text, string Source)> Calls { get; } = [];
+
+        public Task<string> TranslateAsync(string text, string sourceCode, CancellationToken cancellationToken)
+        {
+            Calls.Add((text, sourceCode));
+            return translate(text, sourceCode, cancellationToken);
         }
     }
 

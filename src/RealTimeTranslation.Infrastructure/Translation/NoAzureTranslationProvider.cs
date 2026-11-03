@@ -1,5 +1,6 @@
 using RealTimeTranslation.Core;
 using RealTimeTranslation.Infrastructure.LocalSpeech;
+using RealTimeTranslation.Infrastructure.LocalTranslation;
 
 namespace RealTimeTranslation.Infrastructure.Translation;
 
@@ -8,6 +9,7 @@ public sealed class NoAzureTranslationProvider : ITranslationProvider, IAsyncDis
     private readonly SemaphoreSlim gate = new(1, 1);
     private readonly Func<CancellationToken, Task<IWhisperTranscriber>> createTranscriber;
     private readonly IMyMemoryTranslator translator;
+    private readonly bool localOnly;
     private IWhisperTranscriber? transcriber;
     private bool disposed;
 
@@ -19,13 +21,22 @@ public sealed class NoAzureTranslationProvider : ITranslationProvider, IAsyncDis
     {
     }
 
+    public NoAzureTranslationProvider(
+        IWhisperModelStore modelStore, ILocalTextTranslator translator)
+        : this(async cancellationToken => await WhisperTranscriber.CreateAsync(
+            modelStore ?? throw new ArgumentNullException(nameof(modelStore)),
+            cancellationToken).ConfigureAwait(false), new LocalTranslatorAdapter(translator), true)
+    {
+    }
+
     internal NoAzureTranslationProvider(
         Func<CancellationToken, Task<IWhisperTranscriber>> createTranscriber,
-        IMyMemoryTranslator translator)
+        IMyMemoryTranslator translator, bool localOnly = false)
     {
         this.createTranscriber = createTranscriber ??
             throw new ArgumentNullException(nameof(createTranscriber));
         this.translator = translator ?? throw new ArgumentNullException(nameof(translator));
+        this.localOnly = localOnly;
     }
 
     public async Task PrepareAsync(CancellationToken cancellationToken)
@@ -66,7 +77,7 @@ public sealed class NoAzureTranslationProvider : ITranslationProvider, IAsyncDis
         ArgumentNullException.ThrowIfNull(options);
         await PrepareAsync(cancellationToken).ConfigureAwait(false);
         return new NoAzureTranslationSession(transcriber!, translator,
-            options.TargetLanguage, Task.Delay, ownsTranscriber: false);
+            options.TargetLanguage, Task.Delay, ownsTranscriber: false, localOnly);
     }
 
     public async ValueTask DisposeAsync()

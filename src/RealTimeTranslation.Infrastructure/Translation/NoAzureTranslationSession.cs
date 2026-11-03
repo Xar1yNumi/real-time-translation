@@ -1,5 +1,6 @@
 using RealTimeTranslation.Core;
 using RealTimeTranslation.Infrastructure.LocalSpeech;
+using RealTimeTranslation.Infrastructure.LocalTranslation;
 
 namespace RealTimeTranslation.Infrastructure.Translation;
 
@@ -18,6 +19,8 @@ public sealed class NoAzureTranslationSession : ITranslationSession
     private readonly IMyMemoryTranslator translator;
     private readonly Func<TimeSpan, CancellationToken, Task> delayAsync;
     private readonly string targetCode;
+    private readonly TargetLanguage targetLanguage;
+    private readonly bool localOnly;
     private Task? worker;
     private Task? previewWorker;
     private Task? disposeTask;
@@ -40,6 +43,15 @@ public sealed class NoAzureTranslationSession : ITranslationSession
     {
     }
 
+    public NoAzureTranslationSession(
+        IWhisperTranscriber transcriber,
+        ILocalTextTranslator translator,
+        TargetLanguage targetLanguage)
+        : this(transcriber, new LocalTranslatorAdapter(translator), targetLanguage,
+            Task.Delay, true, true)
+    {
+    }
+
     internal NoAzureTranslationSession(
         IWhisperTranscriber transcriber,
         IMyMemoryTranslator translator,
@@ -54,12 +66,15 @@ public sealed class NoAzureTranslationSession : ITranslationSession
         IMyMemoryTranslator translator,
         TargetLanguage targetLanguage,
         Func<TimeSpan, CancellationToken, Task> delayAsync,
-        bool ownsTranscriber)
+        bool ownsTranscriber,
+        bool localOnly = false)
     {
         this.transcriber = transcriber ?? throw new ArgumentNullException(nameof(transcriber));
         this.ownsTranscriber = ownsTranscriber;
         this.translator = translator ?? throw new ArgumentNullException(nameof(translator));
         this.delayAsync = delayAsync ?? throw new ArgumentNullException(nameof(delayAsync));
+        this.targetLanguage = targetLanguage;
+        this.localOnly = localOnly;
         targetCode = targetLanguage switch
         {
             TargetLanguage.SimplifiedChinese => "zh",
@@ -345,6 +360,14 @@ public sealed class NoAzureTranslationSession : ITranslationSession
                     continue;
                 }
 
+                if (localOnly && BilingualRoute.Resolve(
+                    result.LanguageCode, targetLanguage).Action == BilingualRouteAction.Unsupported)
+                {
+                    Raise(new TranslationWarningUpdate(utterance.Id, utterance.Sequence,
+                        AppErrorCode.UnsupportedLanguage));
+                    continue;
+                }
+
                 Raise(new PartialTranscriptUpdate(
                     utterance.Id, utterance.Sequence, result.Text));
                 var translated = await TranslateWithRetriesAsync(
@@ -380,6 +403,12 @@ public sealed class NoAzureTranslationSession : ITranslationSession
         if (result.LanguageCode == targetCode)
         {
             return result.Text;
+        }
+
+        if (localOnly)
+        {
+            return await translator.TranslateAsync(result.Text!, result.LanguageCode!,
+                targetCode, cancellationToken).ConfigureAwait(false);
         }
 
         for (var attempt = 0; attempt <= RetryDelays.Length; attempt++)
