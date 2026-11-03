@@ -49,6 +49,8 @@
             </StackPanel>
             <TextBlock Text="{Binding CurrentDeviceName, StringFormat=当前设备：{0}}"
                        Foreground="#526277" Margin="0,11,0,0" TextWrapping="Wrap" />
+            <TextBlock Text="翻译电脑播放的歌曲或视频，请选“系统声音”；麦克风适合近距离说话。默认扬声器静音时，系统声音可能采集不到。"
+                       Foreground="#526277" Margin="0,7,0,0" TextWrapping="Wrap" />
 
             <TextBlock Text="目标语言" FontWeight="SemiBold" Foreground="#17243B"
                        Margin="0,24,0,0" />
