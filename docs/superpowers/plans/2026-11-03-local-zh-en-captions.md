@@ -24,9 +24,9 @@
 
 **接口：** 保留 `IWhisperTranscriber.TranscribeAsync` 的自动检测；新增 `BilingualRoute.Resolve(string detectedSource, TargetLanguage target)`，结果为“翻译成 zh／en”“同语种只显示原文”或“不支持”，供新本地会话使用。
 
-- [ ] 增加中文、英文、俄文及识别失败测试：只有中英异语种产生翻译路由；运行目标测试确认新路由缺失而失败。
-- [ ] 实现最小路由判定；用户只选择目标语言，源语言继续由 Whisper 自动检测。现有联网试用版的俄语路径不在本任务中改动。
-- [ ] 编译解决方案，运行目标测试和全部测试，`dotnet format --verify-no-changes`，独立提交。
+- [x] 增加中文、英文、俄文及识别失败测试：只有中英异语种产生翻译路由；运行目标测试确认新路由缺失而失败。
+- [x] 实现最小路由判定；用户只选择目标语言，源语言继续由 Whisper 自动检测。现有联网试用版的俄语路径不在本任务中改动。
+- [x] 编译解决方案，运行目标测试和全部测试，`dotnet format --verify-no-changes`，独立提交。
 
 ## Task 2：本地机器翻译可行性门槛
 
