@@ -1,4 +1,5 @@
 using NAudio.Wave;
+using System.Diagnostics;
 using RealTimeTranslation.Core;
 using RealTimeTranslation.Infrastructure.LocalSpeech;
 using RealTimeTranslation.Infrastructure.LocalTranslation;
@@ -31,7 +32,8 @@ public sealed class LocalTranslationLiveTests
         using var store = new WhisperModelStore(http, models, new WhisperModelDescriptor(
             new Uri("https://example.invalid/never-download"), 190_085_487,
             "ae85e4a935d7a567bd102fe55afc16bb595bdb618e11b2fc7591bc08120411bb"));
-        await using var provider = new NoAzureTranslationProvider(store, local);
+        await using var provider = new NoAzureTranslationProvider(
+            store, local, Path.Combine(models, "silero_vad.onnx"));
         foreach (var (file, target, source) in new[]
         {
             ("jfk-first-5s.wav", TargetLanguage.SimplifiedChinese, "en"),
@@ -42,29 +44,61 @@ public sealed class LocalTranslationLiveTests
                 new TranslationSessionOptions("", "", target), TestContext.Current.CancellationToken);
             var finalSeen = new TaskCompletionSource<FinalUtteranceUpdate>(
                 TaskCreationOptions.RunContinuationsAsynchronously);
+            TimeSpan? firstPreview = null;
+            TimeSpan? finalAt = null;
+            var timer = new Stopwatch();
             session.UpdateReceived += (_, args) =>
             {
-                if (args.Update is FinalUtteranceUpdate final) finalSeen.TrySetResult(final);
+                if (args.Update is PartialTranscriptUpdate && firstPreview is null)
+                    firstPreview = timer.Elapsed;
+                if (args.Update is FinalUtteranceUpdate final)
+                {
+                    finalAt = timer.Elapsed;
+                    finalSeen.TrySetResult(final);
+                }
                 if (args.Update is TranslationCanceledUpdate canceled)
                     finalSeen.TrySetException(new InvalidOperationException(canceled.ErrorCode.ToString()));
             };
             using var wav = new WaveFileReader(Path.Combine(root, "artifacts", "samples", file));
+            using var segmentation = new PcmUtteranceSegmenter(
+                new SileroSpeechActivityDetector(Path.Combine(models, "silero_vad.onnx")));
+            TimeSpan? segmentedAt = null;
             await session.StartAsync(TestContext.Current.CancellationToken);
+            timer.Start();
             var chunk = new byte[3_200];
             int count;
             while ((count = await wav.ReadAsync(chunk, TestContext.Current.CancellationToken)) > 0)
             {
+                if (segmentedAt is null && segmentation.PushProgress(chunk.AsSpan(0, count))
+                    .Any(progress => progress.IsFinal)) segmentedAt = timer.Elapsed;
                 await session.WriteAudioAsync(chunk.AsMemory(0, count), TestContext.Current.CancellationToken);
+                await Task.Delay(100, TestContext.Current.CancellationToken);
             }
-            await session.WriteAudioAsync(new byte[19_200], TestContext.Current.CancellationToken);
+            var trailing = new byte[19_200];
+            if (segmentedAt is null && segmentation.PushProgress(trailing)
+                .Any(progress => progress.IsFinal)) segmentedAt = timer.Elapsed;
+            await session.WriteAudioAsync(trailing, TestContext.Current.CancellationToken);
             var result = await finalSeen.Task.WaitAsync(
                 TimeSpan.FromSeconds(90), TestContext.Current.CancellationToken);
             Assert.Equal(source, result.DetectedLanguage);
             Assert.False(string.IsNullOrWhiteSpace(result.OriginalText));
             Assert.False(string.IsNullOrWhiteSpace(result.TranslatedText));
+            Assert.NotNull(firstPreview);
+            Assert.NotNull(finalAt);
+            Assert.NotNull(segmentedAt);
+            Assert.True(firstPreview < finalAt);
+            if (target == TargetLanguage.SimplifiedChinese)
+            {
+                Assert.Contains(result.TranslatedText,
+                    character => character is >= '\u4e00' and <= '\u9fff');
+                Assert.DoesNotContain('\uFFFD', result.TranslatedText);
+                Assert.Contains("美国同胞", result.TranslatedText);
+            }
             await session.StopAsync(TestContext.Current.CancellationToken);
             TestContext.Current.TestOutputHelper?.WriteLine(
-                $"{file}: {result.OriginalText} => {result.TranslatedText}");
+                $"{file}: preview={firstPreview?.TotalSeconds:F2}s final={finalAt?.TotalSeconds:F2}s " +
+                $"post-segment={(finalAt - segmentedAt)?.TotalSeconds:F2}s " +
+                $"audio={wav.TotalTime.TotalSeconds:F2}s; {result.OriginalText} => {result.TranslatedText}");
         }
     }
 

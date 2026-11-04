@@ -62,6 +62,8 @@ public sealed class LocalTranslationClient : ILocalTextTranslator, IAsyncDisposa
             RedirectStandardInput = true,
             RedirectStandardOutput = true,
             RedirectStandardError = false,
+            StandardInputEncoding = Encoding.UTF8,
+            StandardOutputEncoding = Encoding.UTF8,
         };
         info.ArgumentList.Add("-u");
         info.ArgumentList.Add(workerScript);
@@ -69,6 +71,7 @@ public sealed class LocalTranslationClient : ILocalTextTranslator, IAsyncDisposa
         info.ArgumentList.Add(modelsDirectory);
         info.Environment["HF_HUB_OFFLINE"] = "1";
         info.Environment["TRANSFORMERS_OFFLINE"] = "1";
+        info.Environment["PYTHONIOENCODING"] = "utf-8";
         var process = Process.Start(info) ?? throw new InvalidOperationException(
             "Could not start local translation worker.");
         var client = new LocalTranslationClient(

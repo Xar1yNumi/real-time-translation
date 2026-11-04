@@ -17,9 +17,10 @@ public sealed class WindowsAudioManualTests
         using var stream = new RawSourceWaveStream(
             new MemoryStream(tone, writable: false),
             new WaveFormat(48_000, 16, 2));
-        using var playback = new WaveOut();
+        using var playback = new WasapiPlayerBuilder().Build();
         playback.Init(stream);
         await CaptureForFiveSeconds(new SystemLoopbackAudioSource(), playback.Play);
+        playback.Stop();
     }
 
     [Trait("Category", "WindowsAudioManual")]

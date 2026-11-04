@@ -10,6 +10,7 @@ public sealed class NoAzureTranslationProvider : ITranslationProvider, IAsyncDis
     private readonly Func<CancellationToken, Task<IWhisperTranscriber>> createTranscriber;
     private readonly IMyMemoryTranslator translator;
     private readonly bool localOnly;
+    private readonly Func<ISpeechActivityDetector>? createDetector;
     private IWhisperTranscriber? transcriber;
     private bool disposed;
 
@@ -29,14 +30,26 @@ public sealed class NoAzureTranslationProvider : ITranslationProvider, IAsyncDis
     {
     }
 
+    public NoAzureTranslationProvider(
+        IWhisperModelStore modelStore, ILocalTextTranslator translator, string vadModelPath)
+        : this(async cancellationToken => await WhisperTranscriber.CreateAsync(
+            modelStore ?? throw new ArgumentNullException(nameof(modelStore)),
+            cancellationToken).ConfigureAwait(false),
+            new LocalTranslatorAdapter(translator), true,
+            () => new SileroSpeechActivityDetector(vadModelPath))
+    {
+    }
+
     internal NoAzureTranslationProvider(
         Func<CancellationToken, Task<IWhisperTranscriber>> createTranscriber,
-        IMyMemoryTranslator translator, bool localOnly = false)
+        IMyMemoryTranslator translator, bool localOnly = false,
+        Func<ISpeechActivityDetector>? createDetector = null)
     {
         this.createTranscriber = createTranscriber ??
             throw new ArgumentNullException(nameof(createTranscriber));
         this.translator = translator ?? throw new ArgumentNullException(nameof(translator));
         this.localOnly = localOnly;
+        this.createDetector = createDetector;
     }
 
     public async Task PrepareAsync(CancellationToken cancellationToken)
@@ -77,7 +90,8 @@ public sealed class NoAzureTranslationProvider : ITranslationProvider, IAsyncDis
         ArgumentNullException.ThrowIfNull(options);
         await PrepareAsync(cancellationToken).ConfigureAwait(false);
         return new NoAzureTranslationSession(transcriber!, translator,
-            options.TargetLanguage, Task.Delay, ownsTranscriber: false, localOnly);
+            options.TargetLanguage, Task.Delay, ownsTranscriber: false, localOnly,
+            createDetector?.Invoke());
     }
 
     public async ValueTask DisposeAsync()

@@ -41,7 +41,7 @@ class OpusEngine:
             tokens.insert(0, tag)
         tokens.append("</s>")
         result = translator.translate_batch(
-            [tokens], beam_size=1, repetition_penalty=1.1,
+            [tokens], beam_size=2 if source == "en" else 1, repetition_penalty=1.1,
             no_repeat_ngram_size=3, max_decoding_length=128,
         )[0]
         output = target_spm.decode(

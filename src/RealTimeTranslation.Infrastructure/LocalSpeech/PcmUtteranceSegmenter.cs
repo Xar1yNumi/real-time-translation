@@ -1,21 +1,20 @@
-using System.Buffers.Binary;
-
 namespace RealTimeTranslation.Infrastructure.LocalSpeech;
 
 internal sealed record PcmSpeechProgress(long UtteranceNumber, byte[] Pcm, bool IsFinal);
 
 internal sealed class PcmUtteranceSegmenter : IDisposable
 {
-    private const int FrameBytes = 640; // 20 ms at 16 kHz, PCM16 mono.
-    private const int PreRollFrames = 10;
-    private const int MinimumVoicedFrames = 20;
-    private const int PreviewVoicedFrames = 40;
-    private const int TrailingSilenceFrames = 30;
+    private const int FrameBytes = 1_024; // 32 ms at 16 kHz, PCM16 mono.
+    private const int PreRollFrames = 5;
+    private const int MinimumVoicedFrames = 10;
+    private const int PreviewStartFrames = 20;
+    private const int PreviewIntervalFrames = 25;
+    private const int TrailingSilenceFrames = 15;
     private const int MaximumUtteranceBytes = 256_000;
-    private const int VoiceRmsThreshold = 400;
 
     private readonly byte[] pendingFrame = new byte[FrameBytes];
     private readonly Queue<byte[]> preRoll = new();
+    private readonly ISpeechActivityDetector detector;
     private MemoryStream? current;
     private int pendingCount;
     private int voicedFrames;
@@ -24,6 +23,11 @@ internal sealed class PcmUtteranceSegmenter : IDisposable
     private long nextUtteranceNumber;
     private long currentUtteranceNumber;
     private bool disposed;
+
+    public PcmUtteranceSegmenter(ISpeechActivityDetector? detector = null)
+    {
+        this.detector = detector ?? new RmsSpeechActivityDetector();
+    }
 
     internal int BufferedBytes => pendingCount + (preRoll.Count * FrameBytes) + (int)(current?.Length ?? 0);
 
@@ -57,8 +61,8 @@ internal sealed class PcmUtteranceSegmenter : IDisposable
         var completed = new List<PcmSpeechProgress>(1);
         if (pendingCount >= 2)
         {
-            var evenCount = pendingCount & ~1;
-            ProcessFrame(pendingFrame.AsSpan(0, evenCount), completed);
+            Array.Clear(pendingFrame, pendingCount, FrameBytes - pendingCount);
+            ProcessFrame(pendingFrame, completed);
         }
 
         var utterance = completed.FirstOrDefault(progress => progress.IsFinal)?.Pcm
@@ -66,6 +70,7 @@ internal sealed class PcmUtteranceSegmenter : IDisposable
         Reset();
         preRoll.Clear();
         pendingCount = 0;
+        detector.Reset();
         return utterance;
     }
 
@@ -80,11 +85,12 @@ internal sealed class PcmUtteranceSegmenter : IDisposable
         Reset();
         preRoll.Clear();
         pendingCount = 0;
+        detector.Dispose();
     }
 
     private void ProcessFrame(ReadOnlySpan<byte> frame, List<PcmSpeechProgress>? progress)
     {
-        var isVoice = HasVoice(frame);
+        var isVoice = detector.IsSpeech(frame);
         if (current is null)
         {
             if (!isVoice)
@@ -108,8 +114,9 @@ internal sealed class PcmUtteranceSegmenter : IDisposable
         {
             voicedFrames++;
             silentFrames = 0;
-            if (progress is not null && voicedFrames >= PreviewVoicedFrames
-                && voicedFrames - lastPreviewVoicedFrames >= PreviewVoicedFrames)
+            if (progress is not null && voicedFrames >= PreviewStartFrames &&
+                (lastPreviewVoicedFrames == 0 ||
+                 voicedFrames - lastPreviewVoicedFrames >= PreviewIntervalFrames))
             {
                 progress.Add(new PcmSpeechProgress(
                     currentUtteranceNumber, current.ToArray(), false));
@@ -145,18 +152,6 @@ internal sealed class PcmUtteranceSegmenter : IDisposable
         {
             preRoll.Dequeue();
         }
-    }
-
-    private static bool HasVoice(ReadOnlySpan<byte> frame)
-    {
-        long power = 0;
-        for (var index = 0; index + 1 < frame.Length; index += 2)
-        {
-            var sample = BinaryPrimitives.ReadInt16LittleEndian(frame.Slice(index, 2));
-            power += (long)sample * sample;
-        }
-
-        return power >= (long)VoiceRmsThreshold * VoiceRmsThreshold * (frame.Length / 2);
     }
 
     private void Reset()

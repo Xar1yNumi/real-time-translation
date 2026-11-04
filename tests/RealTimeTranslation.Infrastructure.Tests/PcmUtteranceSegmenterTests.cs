@@ -71,8 +71,8 @@ public sealed class PcmUtteranceSegmenterTests
     {
         using var segmenter = new PcmUtteranceSegmenter();
         Assert.Empty(segmenter.Push(Signal(500, 5_000)));
-        Assert.Empty(segmenter.Push(new byte[29 * 640]));
-        Assert.Empty(segmenter.Push(new byte[320]));
+        Assert.Empty(segmenter.Push(new byte[14 * 1_024]));
+        Assert.Empty(segmenter.Push(new byte[512]));
 
         var utterance = segmenter.Flush();
 
@@ -87,7 +87,7 @@ public sealed class PcmUtteranceSegmenterTests
 
         var first = Assert.Single(segmenter.PushProgress(Signal(1_100, 5_000)));
         Assert.False(first.IsFinal);
-        Assert.InRange(first.Pcm.Length, 25_600, 40_000);
+        Assert.InRange(first.Pcm.Length, 20_000, 40_000);
 
         var second = Assert.Single(segmenter.PushProgress(Signal(1_100, 5_000)));
         Assert.False(second.IsFinal);
@@ -107,6 +107,40 @@ public sealed class PcmUtteranceSegmenterTests
 
         Assert.Empty(segmenter.PushProgress(Signal(200, 5_000)));
         Assert.Empty(segmenter.PushProgress(new byte[19_200]));
+    }
+
+    [Fact]
+    public void DetectorSeparatesSpeechFromLoudNonSpeechAndPreviewsWithinOneSecond()
+    {
+        var detector = new ScriptedDetector(frame => frame < 25);
+        using var segmenter = new PcmUtteranceSegmenter(detector);
+
+        var early = segmenter.PushProgress(Signal(800, 5_000));
+        var preview = Assert.Single(early);
+        Assert.False(preview.IsFinal);
+        Assert.InRange(preview.Pcm.Length, 1, 32_000);
+
+        var completed = segmenter.PushProgress(Signal(700, 5_000));
+        var final = Assert.Single(completed, item => item.IsFinal);
+        Assert.Equal(preview.UtteranceNumber, final.UtteranceNumber);
+        Assert.Equal(25, detector.VoiceFrames);
+    }
+
+    private sealed class ScriptedDetector(Func<int, bool> isSpeech) : ISpeechActivityDetector
+    {
+        private int frame;
+        public int VoiceFrames { get; private set; }
+
+        public bool IsSpeech(ReadOnlySpan<byte> pcm16Mono)
+        {
+            Assert.Equal(1_024, pcm16Mono.Length);
+            var result = isSpeech(frame++);
+            if (result) VoiceFrames++;
+            return result;
+        }
+
+        public void Reset() { }
+        public void Dispose() { }
     }
 
     private static byte[] Signal(int milliseconds, short amplitude)

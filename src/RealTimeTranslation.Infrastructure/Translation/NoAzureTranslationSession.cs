@@ -13,7 +13,7 @@ public sealed class NoAzureTranslationSession : ITranslationSession
     private readonly SemaphoreSlim available = new(0);
     private readonly SemaphoreSlim previewAvailable = new(0);
     private readonly CancellationTokenSource shutdown = new();
-    private readonly PcmUtteranceSegmenter segmenter = new();
+    private readonly PcmUtteranceSegmenter segmenter;
     private readonly IWhisperTranscriber transcriber;
     private readonly bool ownsTranscriber;
     private readonly IMyMemoryTranslator translator;
@@ -27,7 +27,6 @@ public sealed class NoAzureTranslationSession : ITranslationSession
     private QueuedPreview? pendingPreview;
     private bool previewSignalQueued;
     private CancellationTokenSource? previewInFlightCancellation;
-    private long previewRevision;
     private long finalQueuedSequence;
     private long activeUtteranceNumber;
     private string? activeUtteranceId;
@@ -67,7 +66,8 @@ public sealed class NoAzureTranslationSession : ITranslationSession
         TargetLanguage targetLanguage,
         Func<TimeSpan, CancellationToken, Task> delayAsync,
         bool ownsTranscriber,
-        bool localOnly = false)
+        bool localOnly = false,
+        ISpeechActivityDetector? detector = null)
     {
         this.transcriber = transcriber ?? throw new ArgumentNullException(nameof(transcriber));
         this.ownsTranscriber = ownsTranscriber;
@@ -75,6 +75,7 @@ public sealed class NoAzureTranslationSession : ITranslationSession
         this.delayAsync = delayAsync ?? throw new ArgumentNullException(nameof(delayAsync));
         this.targetLanguage = targetLanguage;
         this.localOnly = localOnly;
+        segmenter = new PcmUtteranceSegmenter(detector);
         targetCode = targetLanguage switch
         {
             TargetLanguage.SimplifiedChinese => "zh",
@@ -150,17 +151,12 @@ public sealed class NoAzureTranslationSession : ITranslationSession
                     }
 
                     pendingPreview = new QueuedPreview(
-                        activeUtteranceId!, activeSequence, progress.Pcm, ++previewRevision);
-                    if (previewInFlightCancellation is not null)
-                    {
-                        previewsToCancel.Add(previewInFlightCancellation);
-                    }
+                        activeUtteranceId!, activeSequence, progress.Pcm);
 
                     continue;
                 }
 
                 finalQueuedSequence = activeSequence;
-                previewRevision++;
                 if (pendingPreview?.Sequence == activeSequence)
                 {
                     pendingPreview = null;
@@ -299,7 +295,7 @@ public sealed class NoAzureTranslationSession : ITranslationSession
                     {
                         lock (sync)
                         {
-                            if (state == 1 && preview.Revision == previewRevision &&
+                            if (state == 1 &&
                                 preview.Sequence > finalQueuedSequence &&
                                 !shutdown.IsCancellationRequested)
                             {
@@ -454,5 +450,5 @@ public sealed class NoAzureTranslationSession : ITranslationSession
     }
 
     private sealed record QueuedUtterance(string Id, long Sequence, byte[] Pcm);
-    private sealed record QueuedPreview(string Id, long Sequence, byte[] Pcm, long Revision);
+    private sealed record QueuedPreview(string Id, long Sequence, byte[] Pcm);
 }

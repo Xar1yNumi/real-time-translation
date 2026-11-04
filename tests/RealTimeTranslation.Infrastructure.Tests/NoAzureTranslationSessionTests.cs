@@ -112,6 +112,52 @@ public sealed class NoAzureTranslationSessionTests
     }
 
     [Fact]
+    public async Task NewerAudioDoesNotCancelFirstUsefulPreviewOfSameUtterance()
+    {
+        var firstStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var releaseFirst = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var releaseSecond = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var calls = 0;
+        var transcriber = new FakeTranscriber(async (_, token) =>
+        {
+            if (Interlocked.Increment(ref calls) == 1)
+            {
+                firstStarted.TrySetResult();
+                await releaseFirst.Task.WaitAsync(token);
+                return new TranscriptionResult(TranscriptionStatus.Recognized, "first", "en");
+            }
+            await releaseSecond.Task.WaitAsync(token);
+            return new TranscriptionResult(TranscriptionStatus.Recognized, "second", "en");
+        });
+        var translator = new FakeTranslator((_, _, _, _) => Task.FromResult("第二句"));
+        await using var session = new NoAzureTranslationSession(
+            transcriber, translator, TargetLanguage.SimplifiedChinese);
+        var previewSeen = new TaskCompletionSource<PartialTranscriptUpdate>(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        session.UpdateReceived += (_, args) =>
+        {
+            if (args.Update is PartialTranscriptUpdate partial)
+                previewSeen.TrySetResult(partial);
+        };
+
+        await session.StartAsync(TestContext.Current.CancellationToken);
+        await session.WriteAudioAsync(Signal(1_100), TestContext.Current.CancellationToken);
+        await firstStarted.Task.WaitAsync(TimeSpan.FromSeconds(5), TestContext.Current.CancellationToken);
+        await session.WriteAudioAsync(Signal(1_100), TestContext.Current.CancellationToken);
+        releaseFirst.TrySetResult();
+        try
+        {
+            var preview = await previewSeen.Task.WaitAsync(
+                TimeSpan.FromSeconds(1), TestContext.Current.CancellationToken);
+            Assert.Equal("first", preview.Text);
+        }
+        finally
+        {
+            releaseSecond.TrySetResult();
+        }
+    }
+
+    [Fact]
     public async Task NextPreviewCanArriveWhilePreviousFinalWaitsForOnlineTranslation()
     {
         var enteredTranslation = new TaskCompletionSource(
