@@ -13,6 +13,7 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
     private readonly ICredentialStore? credentialStore;
     private readonly ITranslationConnectionTester? connectionTester;
     private readonly IWhisperModelStore? modelStore;
+    private readonly bool localTranslation;
     private readonly Func<StartTranslationOptions, CancellationToken, ValueTask> startTranslation;
     private readonly IWindowOrchestrator windowOrchestrator;
     private readonly Func<AudioSourceKind, string> deviceNameProvider;
@@ -53,9 +54,10 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
         IWhisperModelStore modelStore,
         Func<StartTranslationOptions, CancellationToken, ValueTask> startTranslation,
         IWindowOrchestrator windowOrchestrator,
-        Func<AudioSourceKind, string> deviceNameProvider)
+        Func<AudioSourceKind, string> deviceNameProvider,
+        bool localTranslation = false)
         : this(settingsStore, null, null, modelStore,
-            startTranslation, windowOrchestrator, deviceNameProvider)
+            startTranslation, windowOrchestrator, deviceNameProvider, localTranslation)
     {
     }
 
@@ -66,12 +68,14 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
         IWhisperModelStore? modelStore,
         Func<StartTranslationOptions, CancellationToken, ValueTask> startTranslation,
         IWindowOrchestrator windowOrchestrator,
-        Func<AudioSourceKind, string> deviceNameProvider)
+        Func<AudioSourceKind, string> deviceNameProvider,
+        bool localTranslation = false)
     {
         this.settingsStore = settingsStore ?? throw new ArgumentNullException(nameof(settingsStore));
         this.credentialStore = credentialStore;
         this.connectionTester = connectionTester;
         this.modelStore = modelStore;
+        this.localTranslation = localTranslation;
         this.startTranslation = startTranslation ?? throw new ArgumentNullException(nameof(startTranslation));
         this.windowOrchestrator = windowOrchestrator ?? throw new ArgumentNullException(nameof(windowOrchestrator));
         this.deviceNameProvider = deviceNameProvider ?? throw new ArgumentNullException(nameof(deviceNameProvider));
@@ -193,6 +197,8 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
 
     public bool IsNoAzureMode => modelStore is not null;
 
+    public bool IsLocalTranslation => localTranslation;
+
     public bool ModelReady
     {
         get => modelReady;
@@ -228,7 +234,9 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
         && Enum.IsDefined(SelectedAudioSource)
         && Enum.IsDefined(SelectedTargetLanguage)
         && (IsNoAzureMode
-            ? ModelReady && HasTextSharingConsent
+            ? ModelReady && (localTranslation
+                ? SelectedTargetLanguage is TargetLanguage.SimplifiedChinese or TargetLanguage.English
+                : HasTextSharingConsent)
             : credentialVerified && HasValidEndpoint && !string.IsNullOrWhiteSpace(ApiKey));
 
     public ICommand TestConnectionCommand => testConnectionCommand;
@@ -260,7 +268,8 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
             {
                 Endpoint = IsNoAzureMode ? string.Empty : settings.Endpoint;
                 SelectedAudioSource = settings.AudioSource;
-                SelectedTargetLanguage = settings.TargetLanguage;
+                SelectedTargetLanguage = localTranslation && settings.TargetLanguage == TargetLanguage.Russian
+                    ? TargetLanguage.SimplifiedChinese : settings.TargetLanguage;
                 subtitleLeft = settings.SubtitleLeft;
                 subtitleTop = settings.SubtitleTop;
                 hasSavedSubtitlePosition = settings.SubtitlePositionSaved
@@ -271,8 +280,11 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
             {
                 ModelReady = await modelStore.VerifyCachedAsync(cancellationToken) is not null;
                 ModelProgress = ModelReady ? 100 : 0;
-                StatusMessage = ModelReady ? "本机语音模型已就绪。请确认文字发送说明。"
-                    : "请先下载语音模型，再确认文字发送说明。";
+                StatusMessage = localTranslation
+                    ? ModelReady ? "本机中英翻译组件已就绪，可直接开始。"
+                        : "本机翻译组件不完整，请重新解压完整试用包。"
+                    : ModelReady ? "本机语音模型已就绪。请确认文字发送说明。"
+                        : "请先下载语音模型，再确认文字发送说明。";
             }
             else
             {
@@ -302,22 +314,25 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
 
         IsBusy = true;
         ModelProgress = 0;
-        StatusMessage = "正在下载并校验本机语音模型…";
+        StatusMessage = localTranslation ? "正在校验本机翻译组件…"
+            : "正在下载并校验本机语音模型…";
         try
         {
             var progress = new Progress<double>(value => ModelProgress = Math.Clamp(value * 100, 0, 100));
             await modelStore.EnsureAvailableAsync(progress, cancellationToken);
             ModelReady = true;
             ModelProgress = 100;
-            StatusMessage = "语音模型已就绪。请确认文字发送说明。";
+            StatusMessage = localTranslation ? "本机中英翻译组件已就绪，可直接开始。"
+                : "语音模型已就绪。请确认文字发送说明。";
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
-            StatusMessage = "语音模型下载已取消。";
+            StatusMessage = localTranslation ? "组件校验已取消。" : "语音模型下载已取消。";
         }
         catch (Exception)
         {
-            StatusMessage = "语音模型下载或校验失败，请检查网络和磁盘空间后重试。";
+            StatusMessage = localTranslation ? "本机翻译组件校验失败，请重新解压完整试用包。"
+                : "语音模型下载或校验失败，请检查网络和磁盘空间后重试。";
         }
         finally
         {
@@ -385,7 +400,9 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
         }
 
         IsBusy = true;
-        StatusMessage = IsNoAzureMode ? "正在准备识别引擎并启动翻译（首次约需 20 秒）…" : "正在连接翻译服务…";
+        StatusMessage = localTranslation ? "正在准备本机识别和翻译引擎…"
+            : IsNoAzureMode ? "正在准备识别引擎并启动翻译（首次约需 20 秒）…"
+                : "正在连接翻译服务…";
         var selectedEndpoint = IsNoAzureMode ? string.Empty : Endpoint;
         var selectedKey = IsNoAzureMode ? string.Empty : ApiKey;
         var selectedSource = SelectedAudioSource;
@@ -399,7 +416,7 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
                 cancellationToken);
             if ((!IsNoAzureMode && (Endpoint != selectedEndpoint || ApiKey != selectedKey
                     || !credentialVerified))
-                || (IsNoAzureMode && (!ModelReady || !HasTextSharingConsent))
+                || (IsNoAzureMode && (!ModelReady || (!localTranslation && !HasTextSharingConsent)))
                 || SelectedAudioSource != selectedSource || SelectedTargetLanguage != selectedTarget
                 || !windowOrchestrator.CanShowSubtitles)
             {

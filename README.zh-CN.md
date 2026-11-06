@@ -2,46 +2,38 @@
 
 [English](README.md)
 
-这是一款 Windows 中英俄实时翻译字幕软件。每次选择一个音源（默认扬声器的系统声音或麦克风）和一种目标语言，悬浮字幕窗持续追加识别原文与译文，可向上滚动查看本次会话。
+这是一个 Windows 中英双向实时字幕项目。选择系统声音或麦克风，以及想看的语言（简体中文或英语）；程序自动判断原语种，在悬浮窗持续追加本次会话的原文和译文。
 
-## 当前短时试用版
+## 当前本机试用版
 
-默认程序**不需要 Azure 账号、API Key 或其他注册**。Whisper 模型在本机识别语音，识别后的文字经 HTTPS 发给 MyMemory 获取译文。翻译时必须联网。第一次使用需下载并校验约 190 MB 的语音模型，以后可复用；音频不上传。开始前须确认界面上的文字发送说明。
+语音识别、分句和文字翻译都在本机运行；无需 Azure、MyMemory、账号或 API Key。完整试用包自带模型与 Python 运行文件，用户无需另装 Python。解压后运行可断网；首次打开会校验文件，首次启动识别引擎可能较慢。
 
-选择“简体中文”时，在线翻译请求明确使用 `zh-CN`，中文识别原文与中文译文会在本机统一转为简体。伴奏较强的歌曲仍可能显著降低当前语音模型的识别准确率；应以所选系统音源确实有声音为前提评估。
+目前只支持中文和英语之间互译。若识别出的语言与目标语言相同，则显示原文；其他语言不会猜测译文。普通讲话、视频和歌曲使用同一流程，伴奏或噪声可能造成明显错字。单应用音源、历史编辑和导出属于后续阶段。
 
-MyMemory [匿名额度为每天 5,000 字符](https://mymemory.translated.net/doc/usagelimits.php)，[单次请求最多 500 UTF-8 字节](https://mymemory.translated.net/doc/spec.php)。服务可用性和译文质量会变化。本试用版尚未通过 30 分钟连续服务验收，也不是公开的 `v0.1.0` 正式版。Azure 代码保留在可选的 `RealTimeTranslation.Azure` 项目中，默认桌面包不包含 Azure SDK。
+## 如何试用
 
-## 如何使用
+1. 在 Windows x64 上完整解压试用 ZIP，运行 RealTimeTranslation.Desktop.exe，不要单独移动 EXE。
+2. 等待界面显示“本机中英翻译组件已就绪”。若提示组件不完整，请重新解压完整文件夹。
+3. 选择“系统声音”翻译默认扬声器的播放内容，或选“麦克风”翻译附近说话声；再选择“简体中文”或“英语”作为目标。
+4. 点击“开始翻译”。悬浮窗先显示可修正的原文预览；定稿后把原文和译文追加到上方历史。鼠标移入可暂停、返回设置或关闭；滚轮可查看当前会话记录。关闭程序后历史清空。
 
-在 Windows x64 上解压试用 ZIP，运行 `RealTimeTranslation.Desktop.exe`，不要单独移走其中的文件。
+通话时若只需翻译对方语音，让对方声音通过默认播放设备输出并选“系统声音”。当前版本会一并采集该播放流里的其他声音，不能按应用或说话人单独筛选。
 
-1. 点击“下载或校验语音模型”，等待进度达到 100%。
-2. 阅读并勾选发送识别文字到 MyMemory 的说明。
-3. 选“系统声音”可翻译默认播放设备中的声音；选“麦克风”可翻译电脑附近的说话声。再选择中文、英语或俄语作为目标语言。
-4. 点击“开始翻译”。首次准备显卡识别引擎可能约需 20 秒；准备完成后才开始收音。鼠标移入悬浮字幕窗，可使用暂停、返回设置和关闭按钮。悬浮窗可拖动，滚轮可查看本次会话的历史；新会话会清空历史。
+## 当前验证情况
 
-说话过程中，字幕窗底部先显示会修正的**原文预览**；语句确定并收到联网译文后，原文和译文会追加到上方的整场会话记录。预览文字只在本机处理，不会反复发送给 MyMemory。
-
-如果通话时只想翻译对方的声音，可选择系统声音，并让对方语音通过默认播放设备输出。同一播放流中的其他声音也可能被采集；当前版本无法单独筛选应用或说话人。
+解压试用包已从桌面启动，并用英文、中文 WAV 分别得到两方向译文；10 分钟连续翻译测试通过。默认扬声器播放英文样本后，经系统回环采集产生了简体中文字幕。[Task 4 实测记录](docs/reports/2026-11-04-local-preview-vad.md)包含预览和终稿延迟，[Task 5 试用包记录](docs/reports/2026-11-06-local-trial-task5.md)列出本轮测试与边界。麦克风完整翻译按项目负责人决定免测放行；真实歌曲准确率和物理断网仍缺现场数据。当前包仅供项目负责人验收，尚不是公开的 v0.1.0 正式发布。
 
 ## 从源码构建
 
-需要 Windows x64 和 [.NET SDK 10.0.301](global.json)：
+需要 Windows x64 和 [.NET SDK 10.0.301](global.json)。普通 dotnet build 不会下载模型或构造试用包。开发机需先按 [模型可行性报告](docs/reports/local-zh-en-model-benchmark.md)准备 Git 忽略的 artifacts/models、artifacts/uv-python、artifacts/localtranslation-venv，然后运行：
 
-```powershell
-dotnet restore RealTimeTranslation.slnx --locked-mode
-dotnet build RealTimeTranslation.slnx --configuration Release --no-restore
-dotnet test RealTimeTranslation.slnx --configuration Release --no-build
-dotnet run --project src/RealTimeTranslation.Desktop/RealTimeTranslation.Desktop.csproj --configuration Release --no-build
-```
+    dotnet restore RealTimeTranslation.slnx --locked-mode
+    dotnet build RealTimeTranslation.slnx --configuration Release --no-restore
+    dotnet test RealTimeTranslation.slnx --configuration Release --no-build
+    powershell -File tools/package-local-trial.ps1
 
-常规测试会跳过需要真实服务、本机测试音频或 30 分钟采集的项目。已取得的证据和待测项目见[实施计划](docs/superpowers/plans/2026-10-31-no-azure-online-trial.md)与[验收报告](docs/feasibility/no-azure-trial-report.md)。
+打包脚本会生成 artifacts/RealTimeTranslation-local-zh-en-win-x64.zip 和相邻的 .sha256。模型和运行环境均不进入 Git。公开分发前需完成第三方许可与全场景验收。
 
-## 隐私与限制
+## 隐私与许可
 
-软件不主动保存音频、识别文字、译文或字幕历史。只有识别文字发送到 MyMemory，并受其[服务条款](https://mymemory.translated.net/terms-and-conditions)约束；短时试用时请避免机密通话。暂停和关闭会停止采集。详情见[隐私说明](docs/privacy.md)。
-
-在有兼容显卡的电脑上，程序优先使用 Vulkan 加速识别；无法使用该后端时保留 CPU 运行库。当前电脑的真实扬声器回环测试中，首个原文预览约在 1.6 秒出现；同一段 5 秒英语音频的最终译文在 7.88 至 12.36 秒完成，网络响应波动明显。完整翻译仍要等待语句结束和网络响应，不能保证固定延迟。处理积压时有界队列会丢弃较早的待识别语句并提示。网络故障会进行有限重试；匿名额度耗尽则停止会话。短句或片段的译文可能不自然。详见[本次实测记录](docs/reports/2026-11-02-progressive-subtitle-trial.md)。当前试用包供项目负责人验收，独立干净电脑和长时服务检查仍待完成。
-
-项目采用 [MIT 许可证](LICENSE)。另见[第三方许可说明](THIRD_PARTY_NOTICES.md)、[贡献指南](CONTRIBUTING.md)、[安全说明](SECURITY.md)和[发布检查清单](docs/release-checklist.md)。
+音频、文字和本次会话历史默认不落盘；暂停和关闭会停止采集。当前默认桌面路径不向在线翻译服务发送文字。详情见[隐私说明](docs/privacy.md)。项目代码采用 [MIT 许可证](LICENSE)；模型和依赖分别适用其[第三方许可](THIRD_PARTY_NOTICES.md)。

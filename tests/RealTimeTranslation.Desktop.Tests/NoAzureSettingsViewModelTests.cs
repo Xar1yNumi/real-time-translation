@@ -8,6 +8,28 @@ namespace RealTimeTranslation.Desktop.Tests;
 public sealed class NoAzureSettingsViewModelTests
 {
     [Fact]
+    public async Task BundledLocalModeStartsOfflineWithoutConsentAndRejectsRussianTarget()
+    {
+        var fixture = new Fixture();
+        fixture.Models.CachedPath = "verified-path";
+        var model = fixture.Create(localTranslation: true);
+
+        await model.InitializeAsync(TestContext.Current.CancellationToken);
+
+        Assert.True(model.ModelReady);
+        Assert.True(model.CanStart);
+        model.SelectedTargetLanguage = TargetLanguage.Russian;
+        Assert.False(model.CanStart);
+        model.SelectedTargetLanguage = TargetLanguage.English;
+        Assert.True(model.CanStart);
+
+        await model.StartTranslationAsync(TestContext.Current.CancellationToken);
+        Assert.Equal(TargetLanguage.English, fixture.StartedOptions?.TargetLanguage);
+        Assert.Equal(string.Empty, fixture.StartedOptions?.Endpoint);
+        Assert.Equal(string.Empty, fixture.StartedOptions?.ApiKey);
+    }
+
+    [Fact]
     public async Task StartRequiresValidatedModelAndTextSharingConsentButNoCredentials()
     {
         var fixture = new Fixture();
@@ -74,7 +96,7 @@ public sealed class NoAzureSettingsViewModelTests
         public StartTranslationOptions? StartedOptions { get; private set; }
         public int StartCount { get; private set; }
 
-        public SettingsViewModel Create() => new(
+        public SettingsViewModel Create(bool localTranslation = false) => new(
             Settings, Models,
             (options, _) =>
             {
@@ -83,7 +105,7 @@ public sealed class NoAzureSettingsViewModelTests
                 return ValueTask.CompletedTask;
             },
             Windows,
-            _ => "Default device");
+            _ => "Default device", localTranslation);
     }
 
     private sealed class FakeSettingsStore : IAppSettingsStore

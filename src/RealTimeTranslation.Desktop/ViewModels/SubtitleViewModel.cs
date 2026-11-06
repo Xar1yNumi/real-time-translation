@@ -16,6 +16,7 @@ public sealed class SubtitleViewModel : INotifyPropertyChanged, IDisposable
     private readonly IWindowOrchestrator windows;
     private readonly Func<StartTranslationOptions?> activeOptions;
     private readonly Action onStopped;
+    private readonly bool localTranslation;
     private readonly AsyncCommand pauseResumeCommand;
     private readonly AsyncCommand returnToSettingsCommand;
     private readonly AsyncCommand closeCommand;
@@ -33,13 +34,15 @@ public sealed class SubtitleViewModel : INotifyPropertyChanged, IDisposable
         IUiDispatcher dispatcher,
         IWindowOrchestrator windows,
         Func<StartTranslationOptions?> activeOptions,
-        Action onStopped)
+        Action onStopped,
+        bool localTranslation = false)
     {
         this.coordinator = coordinator ?? throw new ArgumentNullException(nameof(coordinator));
         this.dispatcher = dispatcher ?? throw new ArgumentNullException(nameof(dispatcher));
         this.windows = windows ?? throw new ArgumentNullException(nameof(windows));
         this.activeOptions = activeOptions ?? throw new ArgumentNullException(nameof(activeOptions));
         this.onStopped = onStopped ?? throw new ArgumentNullException(nameof(onStopped));
+        this.localTranslation = localTranslation;
         History = new ReadOnlyObservableCollection<SubtitleLine>(history);
         connectionStatus = GetStatus(coordinator.State);
         pauseResumeCommand = new AsyncCommand(() => PauseResumeAsync(CancellationToken.None),
@@ -329,7 +332,7 @@ public sealed class SubtitleViewModel : INotifyPropertyChanged, IDisposable
             "正在准备识别引擎（首次约需 20 秒）",
         SessionState.Connecting => "连接中",
         SessionState.Listening when activeOptions()?.Endpoint == string.Empty =>
-            "本机识别／联网翻译中",
+            localTranslation ? "本机识别／本机翻译中" : "本机识别／联网翻译中",
         SessionState.Listening => "正在聆听",
         SessionState.Paused => "已暂停",
         SessionState.Reconnecting => "重新连接中",

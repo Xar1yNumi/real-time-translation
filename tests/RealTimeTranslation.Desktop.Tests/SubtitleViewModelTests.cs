@@ -206,6 +206,19 @@ public sealed class SubtitleViewModelTests
     }
 
     [Fact]
+    public void BundledLocalModeShowsLocalTranslationStatus()
+    {
+        var fixture = new Fixture();
+        fixture.ActiveOptions = new StartTranslationOptions(
+            "", "", AudioSourceKind.SystemAudio, TargetLanguage.SimplifiedChinese);
+        fixture.Controller.SetState(SessionState.Listening);
+
+        using var model = fixture.Create(localTranslation: true);
+
+        Assert.Equal("本机识别／本机翻译中", model.ConnectionStatus);
+    }
+
+    [Fact]
     public async Task PauseCallsCoordinatorOnceAndChangesLabelToResume()
     {
         var fixture = new Fixture();
@@ -346,8 +359,9 @@ public sealed class SubtitleViewModelTests
         public StartTranslationOptions? ActiveOptions { get; set; } = Options;
         public int StoppedCount { get; private set; }
 
-        public SubtitleViewModel Create() => new(
-            Controller, Dispatcher, Windows, () => ActiveOptions, () => StoppedCount++);
+        public SubtitleViewModel Create(bool localTranslation = false) => new(
+            Controller, Dispatcher, Windows, () => ActiveOptions, () => StoppedCount++,
+            localTranslation);
     }
 
     private sealed class FakeController : ITranslationSessionController

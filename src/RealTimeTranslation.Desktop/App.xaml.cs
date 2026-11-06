@@ -1,7 +1,7 @@
 ﻿using System.Configuration;
 using System.Data;
 using System.Diagnostics;
-using System.Net.Http;
+using System.IO;
 using System.Threading;
 using System.Windows;
 using NAudio.CoreAudioApi;
@@ -10,6 +10,7 @@ using RealTimeTranslation.Desktop.Services;
 using RealTimeTranslation.Desktop.ViewModels;
 using RealTimeTranslation.Infrastructure.Audio;
 using RealTimeTranslation.Infrastructure.LocalSpeech;
+using RealTimeTranslation.Infrastructure.LocalTranslation;
 using RealTimeTranslation.Infrastructure.Logging;
 using RealTimeTranslation.Infrastructure.Settings;
 using RealTimeTranslation.Infrastructure.Translation;
@@ -21,8 +22,8 @@ public partial class App : Application, IDisposable
     private Mutex? singleton;
     private TranslationCoordinator? coordinator;
     private SubtitleViewModel? subtitleViewModel;
-    private HttpClient? httpClient;
-    private WhisperModelStore? modelStore;
+    private BundledWhisperModelStore? modelStore;
+    private LocalTranslatorHost? translator;
     private bool ownsSingleton;
     private bool disposed;
 
@@ -40,10 +41,14 @@ public partial class App : Application, IDisposable
 
         try
         {
-            httpClient = new HttpClient();
-            modelStore = new WhisperModelStore(httpClient);
+            var bundle = Path.Combine(AppContext.BaseDirectory, "local-data");
+            modelStore = new BundledWhisperModelStore(bundle);
+            translator = new LocalTranslatorHost(
+                Path.Combine(bundle, "python", "python.exe"),
+                Path.Combine(bundle, "worker.py"),
+                Path.Combine(bundle, "models"));
             var noAzureProvider = new NoAzureTranslationProvider(
-                modelStore, new MyMemoryTranslator(httpClient));
+                modelStore, translator, Path.Combine(bundle, "models", "silero_vad.onnx"));
             coordinator = new TranslationCoordinator(
                 noAzureProvider,
                 kind => kind switch
@@ -62,9 +67,14 @@ public partial class App : Application, IDisposable
             var model = new SettingsViewModel(
                 new JsonAppSettingsStore(),
                 modelStore,
-                coordinator.StartAsync,
+                async (options, token) =>
+                {
+                    await translator.PrepareAsync(token);
+                    await coordinator.StartAsync(options, token);
+                },
                 orchestrator,
-                GetCurrentDeviceName);
+                GetCurrentDeviceName,
+                localTranslation: true);
             model.PropertyChanged += (_, args) =>
             {
                 if (args.PropertyName == nameof(SettingsViewModel.ModelReady) && model.ModelReady)
@@ -78,7 +88,8 @@ public partial class App : Application, IDisposable
                 new WpfUiDispatcher(Dispatcher),
                 orchestrator,
                 () => model.ActiveOptions,
-                model.MarkStopped);
+                model.MarkStopped,
+                localTranslation: true);
             var subtitles = new SubtitleWindow(model) { DataContext = subtitleViewModel };
             orchestrator.AttachWindows(window, subtitles);
             MainWindow = window;
@@ -145,7 +156,8 @@ public partial class App : Application, IDisposable
         finally
         {
             modelStore?.Dispose();
-            httpClient?.Dispose();
+            if (translator is not null)
+                Task.Run(() => translator.DisposeAsync().AsTask()).GetAwaiter().GetResult();
             if (ownsSingleton)
             {
                 singleton?.ReleaseMutex();

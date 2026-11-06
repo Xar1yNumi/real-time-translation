@@ -3,7 +3,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:core="clr-namespace:RealTimeTranslation.Core;assembly=RealTimeTranslation.Core"
         Title="实时翻译 · 设置"
-        Width="640" Height="690" MinWidth="520" MinHeight="600"
+        Width="640" Height="720" MinWidth="520" MinHeight="620"
         WindowStartupLocation="CenterScreen"
         Background="#F7F9FC" FontFamily="Microsoft YaHei UI" FontSize="14">
     <Window.Resources>
@@ -15,28 +15,21 @@
     <ScrollViewer VerticalScrollBarVisibility="Auto">
         <StackPanel Margin="28,26,28,30">
             <TextBlock Text="实时翻译" FontSize="26" FontWeight="SemiBold" Foreground="#17243B" />
-            <TextBlock Text="选择一个音源，将中文、英语或俄语翻译成你选择的语言。"
+            <TextBlock Text="选择一个音源，自动识别中文或英语，翻译成你选择的语言。"
                        Margin="0,7,0,0" Foreground="#526277" TextWrapping="Wrap" />
 
             <Border Background="#E8F0FB" CornerRadius="10" Padding="15" Margin="0,22,0,20">
-                <TextBlock Text="运行时需要联网。音频仅在本机识别；确认的文字会发送给 MyMemory。匿名额度每天 5,000 字符。只有点击“开始翻译”后才会采集音频。"
+                <TextBlock Text="语音识别和文字翻译都在本机完成，运行时无需联网或账号。只有点击“开始翻译”后才会采集音频；本次会话的字幕不会保存到磁盘。"
                            Foreground="#243B60" TextWrapping="Wrap" />
             </Border>
 
-            <TextBlock Text="本机语音模型" FontWeight="SemiBold" Foreground="#17243B" />
-            <TextBlock Text="首次使用需下载约 190 MB 的中文、英语和俄语语音识别模型。"
+            <TextBlock Text="本机翻译组件" FontWeight="SemiBold" Foreground="#17243B" />
+            <TextBlock Text="试用包已包含中英识别和翻译所需文件。请完整解压文件夹；首次校验和启动可能需要一些时间，无需安装 Python。"
                        Margin="0,7,0,0" Foreground="#526277" TextWrapping="Wrap" />
-            <Button Content="下载或校验语音模型" Command="{Binding DownloadModelCommand}"
+            <Button Content="校验本机组件" Command="{Binding DownloadModelCommand}"
                     HorizontalAlignment="Left" Margin="0,12,0,0" />
             <ProgressBar Minimum="0" Maximum="100" Height="12" Margin="0,12,0,0"
                          Value="{Binding ModelProgress, Mode=OneWay}" AutomationProperties.Name="模型下载进度" />
-
-            <CheckBox IsChecked="{Binding HasTextSharingConsent, Mode=TwoWay}"
-                      Margin="0,20,0,0" VerticalContentAlignment="Center"
-                      AutomationProperties.Name="同意将识别文字发送到 MyMemory">
-                <TextBlock Text="我了解识别后的文字会发送到 MyMemory，用于获取译文。"
-                           TextWrapping="Wrap" />
-            </CheckBox>
 
             <TextBlock Text="音源（一次只能选一个）" FontWeight="SemiBold"
                        Foreground="#17243B" Margin="0,25,0,0" />
@@ -59,7 +52,6 @@
                       AutomationProperties.Name="目标语言">
                 <ComboBoxItem Content="简体中文" Tag="{x:Static core:TargetLanguage.SimplifiedChinese}" />
                 <ComboBoxItem Content="英语" Tag="{x:Static core:TargetLanguage.English}" />
-                <ComboBoxItem Content="俄语" Tag="{x:Static core:TargetLanguage.Russian}" />
             </ComboBox>
 
             <TextBlock Text="{Binding StatusMessage}" Foreground="#526277"

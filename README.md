@@ -2,46 +2,38 @@
 
 [简体中文](README.zh-CN.md)
 
-Windows desktop subtitles for spoken Chinese, English, and Russian. Choose one source (default speaker output or microphone) and one target language. A floating window appends recognized speech and translations throughout the session; scroll up to review earlier lines.
+Windows desktop subtitles for spoken Chinese and English. Choose system audio or microphone and a target language. The app detects the source language and appends original text and translations to a scrollable floating window.
 
-## Current short trial
+## Local trial
 
-The default app needs **no Azure account, API key, or other registration**. It recognizes speech locally with a multilingual Whisper model, then sends recognized text over HTTPS to MyMemory. An internet connection is required while translating. First use downloads and verifies a roughly 190 MB model; later launches reuse it. Audio stays on your computer. You must confirm the text-sharing notice before starting.
+Speech recognition, segmentation, and text translation run on the computer. No Azure, MyMemory, account, or API key is needed. The complete trial ZIP includes its models and Python runtime; users do not install Python. Once extracted, it can run without a network connection. The first launch verifies the bundled files, and initial speech engine preparation may take longer.
 
-Chinese results are requested with the `zh-CN` locale, and Chinese recognized text and translated text are converted to simplified characters locally. Songs with strong backing tracks can still be much harder for the current speech model than spoken words. Check that the selected system audio device actually carries sound before judging recognition accuracy.
-
-MyMemory allows [5,000 anonymous characters per day](https://mymemory.translated.net/doc/usagelimits.php) and [500 UTF-8 bytes per request](https://mymemory.translated.net/doc/spec.php). Service availability and translation quality vary. This trial has not passed a 30-minute service test and is not a public `v0.1.0` release. Optional Azure code remains in `RealTimeTranslation.Azure` but is absent from the default desktop package.
+This stage supports Chinese and English only. If the detected source already matches the selected target, the original is shown. Other detected languages do not produce a guessed translation. Speech, video, and songs use the same path, although music and noise may impair recognition. Per-app capture, history editing, and export are later stages.
 
 ## Try it
 
-On Windows x64, extract the review ZIP and run `RealTimeTranslation.Desktop.exe`. Keep the extracted files together.
+1. Fully extract the Windows x64 trial ZIP and run RealTimeTranslation.Desktop.exe. Keep the files together.
+2. Wait for the local components to show as ready. If they are incomplete, extract the whole package again.
+3. Select System audio for the default speaker stream or Microphone for nearby speech, then choose Simplified Chinese or English.
+4. Click Start translation. A revisable original-text preview appears first; the final original and translation are appended above. Hover over the overlay for Pause, Return to settings, and Close. Scroll to review this session; closing clears it.
 
-1. Click **Download or verify speech model** and wait for 100%.
-2. Read and check the MyMemory text-sharing box.
-3. Select **System audio** for the default Windows output stream or **Microphone** for nearby speech. Select Chinese, English, or Russian as the target.
-4. Click **Start translation**. Initial GPU preparation may take about 20 seconds; capture begins afterward. Move the pointer over the floating window for Pause, Return to settings, and Close. Drag the window or scroll to review this session. A new session clears the history.
+For calls, choose system audio when the other person's voice plays through the default output device. Other sounds on the same stream can also be captured. The app cannot isolate one application or speaker yet.
 
-While someone speaks, the bottom of the overlay shows a revisable **original-text preview**. Once the phrase and online translation finish, the original and translation are appended to the session history above. Previews stay local and do not repeatedly call MyMemory.
+## Verification status
 
-For calls, choose system audio if the other person's voice plays through your default output device. Other sounds in the same stream may also be captured. The app cannot isolate one application or speaker.
+The extracted trial package launched on the desktop and translated fixed English and Chinese WAV samples in both directions. A 10-minute continuous translation test passed. An English sample played through the default speaker also produced a simplified Chinese subtitle through Windows loopback. The [Task 4 report](docs/reports/2026-11-04-local-preview-vad.md) records preview and final timing; the [Task 5 report](docs/reports/2026-11-06-local-trial-task5.md) records package checks and limits. The project owner waived the full live microphone translation check for this stage. Real song accuracy and a physical network disconnect have not been measured. This package is for owner acceptance, not a public v0.1.0 release.
 
 ## Build from source
 
-Requires Windows x64 and [.NET SDK 10.0.301](global.json):
+Requires Windows x64 and [.NET SDK 10.0.301](global.json). A normal build does not download models or assemble the trial package. Prepare ignored files under artifacts/models, artifacts/uv-python, and artifacts/localtranslation-venv as documented in the [model feasibility report](docs/reports/local-zh-en-model-benchmark.md), then run:
 
-```powershell
-dotnet restore RealTimeTranslation.slnx --locked-mode
-dotnet build RealTimeTranslation.slnx --configuration Release --no-restore
-dotnet test RealTimeTranslation.slnx --configuration Release --no-build
-dotnet run --project src/RealTimeTranslation.Desktop/RealTimeTranslation.Desktop.csproj --configuration Release --no-build
-```
+    dotnet restore RealTimeTranslation.slnx --locked-mode
+    dotnet build RealTimeTranslation.slnx --configuration Release --no-restore
+    dotnet test RealTimeTranslation.slnx --configuration Release --no-build
+    powershell -File tools/package-local-trial.ps1
 
-The regular suite skips live service, audio-fixture, and 30-minute capture tests. See the [implementation plan](docs/superpowers/plans/2026-10-31-no-azure-online-trial.md) and [acceptance report](docs/feasibility/no-azure-trial-report.md).
+The packaging script writes artifacts/RealTimeTranslation-local-zh-en-win-x64.zip and a sibling .sha256. Models and runtime files are excluded from Git. A public binary release still requires full third-party license review and scenario acceptance.
 
-## Privacy and limits
+## Privacy and licenses
 
-The app does not intentionally save audio, transcripts, translations, or subtitle history. Only recognized text goes to MyMemory; its [terms](https://mymemory.translated.net/terms-and-conditions) apply. Avoid confidential conversations in this trial. Pause and Close stop capture. See [privacy details](docs/privacy.md).
-
-The app prefers Vulkan acceleration on compatible GPUs and retains a CPU runtime otherwise. In three real speaker-loopback runs on this PC, the first original-text preview appeared at about 1.6 seconds; final translations for the same five-second English clip appeared between 7.88 and 12.36 seconds. Network response time varied substantially, so this is not yet a consistently low-latency experience. A bounded queue drops older pending phrases with a warning when processing falls behind. Network requests have limited retries; quota exhaustion ends the session. Short fragments can produce unnatural translations. See the [progressive subtitle measurements](docs/reports/2026-11-02-progressive-subtitle-trial.md). The current package is for owner review; a clean Windows machine and longer service checks remain open.
-
-This project is [MIT licensed](LICENSE). See [third-party notices](THIRD_PARTY_NOTICES.md), [contributing](CONTRIBUTING.md), [security](SECURITY.md), and the [release checklist](docs/release-checklist.md).
+Audio, text, and session history are not saved by default. Pause and Close stop capture. The default desktop path sends no text to an online translation service. See [privacy details](docs/privacy.md). Project code is [MIT licensed](LICENSE); models and dependencies carry their own [third-party licenses](THIRD_PARTY_NOTICES.md).

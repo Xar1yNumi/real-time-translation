@@ -6,7 +6,7 @@ using RealTimeTranslation.Core;
 
 namespace RealTimeTranslation.Infrastructure.LocalTranslation;
 
-public sealed class LocalTranslationClient : ILocalTextTranslator, IAsyncDisposable
+public sealed class LocalTranslationClient : ILocalTranslatorWorker
 {
     private const int MaxRequestBytes = 16_384;
     private const int MaxResponseCharacters = 16_384;
