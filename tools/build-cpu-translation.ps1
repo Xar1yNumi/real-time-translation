@@ -36,7 +36,7 @@ if ($LASTEXITCODE -ne 0) { throw 'CPU CTranslate2 build failed.' }
 cmake --install $build --config Release
 if ($LASTEXITCODE -ne 0) { throw 'CPU CTranslate2 install failed.' }
 
-$openblas = Get-ChildItem (Join-Path $installed 'bin') -Filter '*openblas*.dll' -File
+$openblas = @(Get-ChildItem (Join-Path $installed 'bin') -Filter '*openblas*.dll' -File)
 if ($openblas.Count -ne 1) { throw "Expected one OpenBLAS DLL; found $($openblas.Count)." }
 $package = Join-Path $source 'python/ctranslate2'
 Copy-Item -LiteralPath (Join-Path $prefix 'bin/ctranslate2.dll') -Destination $package
