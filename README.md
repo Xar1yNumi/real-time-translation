@@ -23,6 +23,8 @@ For calls, choose system audio when the other person's voice plays through the d
 
 ## Verification status
 
+Public binary redistribution is still pending; the [binary license audit](docs/reports/2026-11-07-binary-license-audit.md) records the tested candidate and remaining release gates.
+
 The extracted trial package launched on the desktop and translated fixed English and Chinese WAV samples in both directions. A 10-minute low-duty-cycle translation test passed. An English sample played through the default speaker also produced a simplified Chinese subtitle through Windows loopback. The [Task 4 report](docs/reports/2026-11-04-local-preview-vad.md) records preview and final timing; the [Task 5 report](docs/reports/2026-11-06-local-trial-task5.md) records package checks, and the [continuity report](docs/reports/2026-11-07-local-continuity.md) records queue, order, and memory measurements. The project owner waived the full live microphone translation check; it is not claimed as tested. Real song accuracy and a physical network disconnect have not been measured. The repository is a **public source preview**. The existing owner trial ZIP is not a GitHub Release asset while third-party redistribution review remains open.
 
 ## Build from source
