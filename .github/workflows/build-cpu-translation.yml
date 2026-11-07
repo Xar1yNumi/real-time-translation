@@ -1,0 +1,29 @@
+name: Build CPU translation runtime
+
+on:
+  push:
+    branches: [codex/no-intel-public-release]
+    paths:
+      - .github/workflows/build-cpu-translation.yml
+      - tools/build-cpu-translation.ps1
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: windows-2022
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          architecture: x64
+      - name: Build pinned CPU wheel
+        shell: pwsh
+        run: ./tools/build-cpu-translation.ps1
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ctranslate2-4.8.4-cpu-no-intel-win-x64
+          path: artifacts/cpu-translation-build/*
+          if-no-files-found: error
+          retention-days: 30
