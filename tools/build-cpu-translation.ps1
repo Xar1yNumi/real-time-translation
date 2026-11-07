@@ -14,11 +14,20 @@ $vcpkg = Join-Path $env:VCPKG_INSTALLATION_ROOT 'vcpkg.exe'
 & $vcpkg install openblas:x64-windows
 if ($LASTEXITCODE -ne 0) { throw 'OpenBLAS install failed.' }
 $installed = Join-Path $env:VCPKG_INSTALLATION_ROOT 'installed/x64-windows'
+$header = Get-ChildItem (Join-Path $installed 'include') -Recurse -Filter 'cblas.h' -File |
+    Select-Object -First 1
+$importLibrary = Get-ChildItem (Join-Path $installed 'lib') -Filter '*openblas*.lib' -File |
+    Select-Object -First 1
+if (-not $header -or -not $importLibrary) {
+    throw 'OpenBLAS header or import library was not installed by vcpkg.'
+}
 $build = Join-Path $source 'build-cpu'
 $prefix = Join-Path $source 'install-cpu'
 cmake -S $source -B $build -G 'Visual Studio 17 2022' -A x64 `
     "-DCMAKE_TOOLCHAIN_FILE=$(Join-Path $env:VCPKG_INSTALLATION_ROOT 'scripts/buildsystems/vcpkg.cmake')" `
     "-DCMAKE_INSTALL_PREFIX=$prefix" `
+    "-DOPENBLAS_INCLUDE_DIR=$($header.Directory.FullName)" `
+    "-DOPENBLAS_LIBRARY=$($importLibrary.FullName)" `
     -DWITH_MKL=OFF -DWITH_DNNL=OFF -DWITH_CUDA=OFF -DWITH_CUDNN=OFF `
     -DWITH_OPENBLAS=ON -DWITH_RUY=ON -DOPENMP_RUNTIME=NONE -DBUILD_CLI=OFF
 if ($LASTEXITCODE -ne 0) { throw 'CPU CMake configure failed.' }
