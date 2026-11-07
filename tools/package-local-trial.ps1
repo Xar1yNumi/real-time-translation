@@ -38,7 +38,7 @@ foreach ($entry in $expected.GetEnumerator()) {
 
 dotnet publish (Join-Path $repository 'src/RealTimeTranslation.Desktop/RealTimeTranslation.Desktop.csproj') `
     --configuration Release --runtime win-x64 --self-contained true `
-    --output $output -p:RestoreLockedMode=true
+    --output $output -p:RestoreLockedMode=true -m:1 -nr:false
 if ($LASTEXITCODE -ne 0) { throw 'Desktop publish failed.' }
 
 $bundle = Join-Path $output 'local-data'
@@ -48,13 +48,38 @@ New-Item -ItemType Directory -Path $bundle, $modelsDestination -Force | Out-Null
 Copy-Item -LiteralPath $pythonSource -Destination $pythonDestination -Recurse
 $packageDestination = Join-Path $pythonDestination 'Lib/site-packages'
 New-Item -ItemType Directory -Path $packageDestination -Force | Out-Null
-Copy-Item -Path (Join-Path $packagesSource '*') -Destination $packageDestination -Recurse -Force
+$runtimePackages = @(
+    'ctranslate2', 'ctranslate2-4.8.4.dist-info',
+    'sentencepiece', 'sentencepiece-0.2.1.dist-info',
+    'opencc', 'opencc_python_reimplemented-0.1.7.dist-info',
+    'numpy', 'numpy.libs', 'numpy-2.4.6.dist-info',
+    'yaml', '_yaml', 'pyyaml-6.0.3.dist-info'
+)
+foreach ($package in $runtimePackages) {
+    $source = Join-Path $packagesSource $package
+    if (-not (Test-Path -LiteralPath $source)) {
+        throw "Required translation runtime package is missing: $source"
+    }
+    Copy-Item -LiteralPath $source -Destination $packageDestination -Recurse
+}
+$cudnn = Join-Path $packageDestination 'ctranslate2/cudnn64_9.dll'
+if (Test-Path -LiteralPath $cudnn -PathType Leaf) {
+    Remove-Item -LiteralPath $cudnn
+}
+$intelOpenMp = Join-Path $packageDestination 'ctranslate2/libiomp5md.dll'
+if (-not (Test-Path -LiteralPath $intelOpenMp -PathType Leaf) -or
+    (Get-FileHash -LiteralPath $intelOpenMp -Algorithm SHA256).Hash -ne
+        '982233366B0AFCDA1E0F55A0B134097E35B779613F54DDB69E685E6CD06B755F') {
+    throw 'Intel OpenMP runtime is missing or differs from the audited 2025.3.0 wheel.'
+}
 Copy-Item -LiteralPath (Join-Path $repository 'tools/LocalTranslation.Worker/worker.py') `
     -Destination (Join-Path $bundle 'worker.py')
 Copy-Item -LiteralPath (Join-Path $modelsSource 'ggml-small-q5_1.bin'), `
     (Join-Path $modelsSource 'silero_vad.onnx') -Destination $modelsDestination
 Copy-Item -LiteralPath (Join-Path $modelsSource 'opus-mt-en-zh'), `
     (Join-Path $modelsSource 'opus-mt-zh-en') -Destination $modelsDestination -Recurse
+Copy-Item -LiteralPath (Join-Path $repository 'third_party_licenses/OPUS-MT-model-credits.txt') `
+    -Destination (Join-Path $modelsDestination 'MODEL-CREDITS.txt')
 Copy-Item -LiteralPath (Join-Path $repository 'LICENSE'), `
     (Join-Path $repository 'THIRD_PARTY_NOTICES.md'), `
     (Join-Path $repository 'README.md'), `

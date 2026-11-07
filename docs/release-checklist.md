@@ -15,7 +15,7 @@ Status: **Chinese–English local MVP preview**. This is the current release bas
 
 - [x] Desktop ZIP was produced and extracted on Windows x64; both translation directions and a default-speaker loopback path produced subtitles. See [Task 5](reports/2026-11-06-local-trial-task5.md).
 - [x] A 10-minute low-duty-cycle test of the extracted package passed with ordered subtitles and bounded queues. See [continuity results](reports/2026-11-07-local-continuity.md).
-- [ ] Finish the redistribution audit for bundled CPython packages, native DLLs, and converted models. The upstream English-to-Chinese model declares Apache-2.0 at the pinned revision; local conversion metadata currently says CC-BY-4.0 and must be corrected before distributing a binary.
+- [ ] Clear the remaining items in the [binary license audit](reports/2026-11-07-binary-license-audit.md), especially version-matched Intel OpenMP redistribution rights and the English-to-Chinese converted-model metadata. A candidate was built and tested locally, but it is not cleared for public upload.
 - [ ] Build a fresh package from the final public commit, verify SHA-256, inspect its contents, and publish it as a GitHub Release asset only after the license audit is complete.
 
 ## Limits to disclose
