@@ -8,8 +8,8 @@ Status: **Chinese–English local MVP preview**. This is the current release bas
 - [x] Source and test fixtures contain no model weights, personal audio, credentials, generated packages, or local settings. artifacts/ is ignored by Git.
 - [x] Default desktop path uses bundled local speech recognition and Chinese–English translation, with no account, API key, or network service.
 - [x] Merge the current branch into main; PR #1 passed both GitHub Actions checks and was squash-merged on 2026-11-07.
-- [ ] Make the GitHub repository public. The GitHub connector has no visibility-write operation; the in-app browser was signed out, and automatic approval rejected extracting a Git credential for a direct API request.
-- [ ] Verify the public repository and its default branch from an unauthenticated view.
+- [x] Make the GitHub repository public on 2026-11-07. GitHub settings and the repository connector both report `public`.
+- [x] Verify an unauthenticated request to the repository URL returns HTTP 200. GitHub settings show `main` as the default branch.
 
 ## Binary package
 
