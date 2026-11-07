@@ -1,5 +1,6 @@
 <Solution>
   <Folder Name="/src/">
+    <Project Path="src/RealTimeTranslation.Azure/RealTimeTranslation.Azure.csproj" />
     <Project Path="src/RealTimeTranslation.Core/RealTimeTranslation.Core.csproj" />
     <Project Path="src/RealTimeTranslation.Desktop/RealTimeTranslation.Desktop.csproj" />
     <Project Path="src/RealTimeTranslation.Infrastructure/RealTimeTranslation.Infrastructure.csproj" />

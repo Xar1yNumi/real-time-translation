@@ -3,6 +3,7 @@
   <ItemGroup>
     <ProjectReference Include="..\..\src\RealTimeTranslation.Core\RealTimeTranslation.Core.csproj" />
     <ProjectReference Include="..\..\src\RealTimeTranslation.Infrastructure\RealTimeTranslation.Infrastructure.csproj" />
+    <ProjectReference Include="..\..\src\RealTimeTranslation.Azure\RealTimeTranslation.Azure.csproj" />
   </ItemGroup>
 
   <PropertyGroup>

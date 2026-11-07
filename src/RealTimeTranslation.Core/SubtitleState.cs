@@ -30,28 +30,19 @@ public sealed record SubtitleState(
             PartialTranscriptUpdate partial => new(
                 partial.UtteranceId,
                 partial.Sequence,
-                LastTwoLines(partial.Text),
+                partial.Text,
                 string.Empty,
                 string.Empty,
                 true),
             FinalUtteranceUpdate final => new(
                 final.UtteranceId,
                 final.Sequence,
-                LastTwoLines(final.OriginalText),
-                LastTwoLines(final.TranslatedText),
+                final.OriginalText,
+                final.TranslatedText,
                 final.DetectedLanguage,
                 false),
             _ => this
         };
     }
 
-    private static string LastTwoLines(string text)
-    {
-        var lines = text.Replace("\r\n", "\n", StringComparison.Ordinal)
-            .Split(
-                '\n',
-                StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
-
-        return string.Join(Environment.NewLine, lines.TakeLast(2));
-    }
 }

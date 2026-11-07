@@ -1,0 +1,46 @@
+# No-Azure short-trial acceptance report — 2026-11-01
+
+## Environment and fixtures
+
+- Windows x64; AMD Ryzen 7 5800H; NVIDIA RTX 3060 Laptop (6 GB); default Realtek speaker output. The initial trial used Whisper.net 1.9.1 on CPU; the revised trial below adds the Vulkan runtime.
+- Local multilingual model `ggml-small-q5_1.bin`, 190,085,487 bytes, SHA-256 `ae85e4a935d7a567bd102fe55afc16bb595bdb618e11b2fc7591bc08120411bb`. The app downloaded and validated it on first use, then reused it on a fresh launch.
+- English: [whisper.cpp JFK sample](https://github.com/ggml-org/whisper.cpp/blob/master/samples/jfk.wav), locally downloaded to ignored `artifacts/samples/jfk.wav`.
+- Chinese: `chinese-weather.wav`, generated locally with the installed Microsoft Huihui Desktop voice at 16 kHz mono PCM. It is an ignored test artifact and is not distributed.
+- Russian: an 8-second excerpt from [Wikimedia Commons' spoken Russian article](https://commons.wikimedia.org/wiki/File:Ru-Russian_language_(intro).ogg), CC BY 3.0, speakers Andrew Krizhanovsky and Nataly Lugovaya. The locally decoded excerpt is an ignored test artifact and is not distributed.
+
+## Real results
+
+| Path | Observed result | Timing |
+| --- | --- | --- |
+| English WAV through system loopback → Chinese floating subtitle | The window showed `what your country can do for you.` and `您的国家可以为您做些什么。` | No synchronized phrase-end measurement |
+| Chinese WAV through system loopback → English floating subtitle | The window showed `今天天气很好` and `It's a nice day.` | No synchronized phrase-end measurement |
+| Russian WAV through system loopback → Chinese floating subtitle | The last displayed fragment was `6 среди всех языков.` and `在所有语言中占6种。`; the fragment translation is awkward | No synchronized phrase-end measurement |
+| Chinese WAV → local recognizer → MyMemory → final subtitle update | Detected `zh`; nonempty different English result | 11.43 seconds from rapid PCM submission to final update |
+| Russian WAV → local recognizer → MyMemory → final subtitle update | Detected `ru`; nonempty different Chinese result | 11.27 seconds from rapid PCM submission to final update |
+| Extracted `win-x64` review package, English WAV through system loopback → Chinese floating subtitle | ZIP hash matched the published `.sha256`; a fresh launch reused the validated model, accepted consent, and showed `ask what you can do for your country.` → `问问你能为你的国家做些什么。`; closing the subtitle window ended the process | No synchronized phrase-end measurement |
+| Rebuilt review package after the network-warning fix, English WAV through system loopback → Chinese floating subtitle | A fresh extraction showed `And so, my fellow Americans.` → `还有你，我的美国同胞们。`; a backlog warning also appeared, so this run does not establish continuous real-time throughput | No synchronized phrase-end measurement |
+| Live Realtek microphone, prompted Chinese speech → English floating subtitle | The window showed recognized Chinese and `It's a nice day. Let's go to commune.` The latter clause was inaccurate. The speaker reported that the phrase was not spoken in standard form; this single run cannot isolate speech recognition, microphone conditions, and text translation as causes | No synchronized phrase-end measurement |
+
+Standalone recognition identified Chinese as `zh` in 9.71 seconds and Russian as `ru` in 9.80 seconds. The Chinese output used traditional character forms. The Russian recognition included `язык русского народа. Является одним из наиболее распространенных языков мира, шестым среди всех языков.`
+
+Six live MyMemory text directions (`en↔zh`, `en↔ru`, `zh↔ru`) returned nonempty changed results without an account or key. Individual requests took 0.5–2.2 seconds in this run. The service was intermittently unavailable on an earlier live chain run; a short successful run does not establish long-term availability.
+
+After the network-warning fix and final package rebuild, the three opt-in live audio chains passed again with the same local fixtures: English → Chinese in 15.36 seconds, Chinese → English in 15.31 seconds, and Russian → Chinese in 19.03 seconds, measured from rapid PCM submission to a final update. These slower values reinforce that the trial has not met a low-latency real-time target.
+
+## Revision after owner feedback: accumulating subtitles and faster recognition
+
+The floating window now keeps every finalized original/translation pair in the current session, with vertical scrolling. A partial recognition line is shown separately and does not replace confirmed lines. New sessions clear the in-memory history. The two-line truncation in the core subtitle state was removed. View-model and core tests cover accumulation, duplicate finals, partials, session reset, and multi-line text. WPF compilation passed. A separate visual preview launch was blocked by an application approval timeout; the revised floating window still needs owner visual inspection.
+
+The RTX 3060 benchmark used the same `ggml-small-q5_1.bin` model and the Whisper.net 1.9.1 Vulkan runtime. The first GPU inference in a fresh process took about 20–21 seconds, including native shader preparation. Afterward, the English 5-second clip took 0.44–0.46 seconds, the Chinese clip 0.45–0.47 seconds, and the Russian 8-second clip 0.57–0.58 seconds. The same English clip, with the Vulkan driver deliberately made unavailable in a separate scratch process, fell back to CPU and took 9.16–9.41 seconds per inference. The production app now starts preparing the recognizer in the background after model verification, waits for preparation before capture starts, and reuses the prepared recognizer across sessions. The first app start can still require about 20 seconds; this is startup time, not phrase-to-subtitle time.
+
+The three opt-in real audio → local recognition → MyMemory → final-update tests passed serially after preparation. From rapid PCM submission to final update: English → Chinese 2.27 seconds, Chinese → English 2.33 seconds, and Russian → Chinese 2.44 seconds. These figures exclude preparation, real-time audio playback or speaking duration, and a synchronized phrase-end-to-screen measurement. The existing 600 ms trailing-silence boundary and 8-second maximum utterance still add wait time in real use. A trial with an arbitrary 4-second Russian cut damaged transcription quality, so the cap was not shortened without a better segmentation design.
+
+The revised owner package is `artifacts/RealTimeTranslation-noazure-history-gpu-win-x64.zip`, with a matching `.sha256` file beside it. Extraction succeeded; the extracted executable matched the published executable hash and the Windows x64 Vulkan DLL was present. The archive has 457 entries, zero Azure SDK binaries, model weights, sample audio, or logs, and no missing bundled relative Markdown links. The published settings window opened with the cached model ready. Actual revised subtitle-window rendering still awaits visual inspection.
+
+## Recovery and remaining limits
+
+Automated tests cover a bounded two-item utterance queue, a 500-byte request limit, HTTP and quota classification, 1/2/4-second transient network retries, continued processing after retries are exhausted, and a visible warning that clears after a later successful translation. An app-scoped loopback proxy test returned two HTTP 502 responses to the extracted app's HTTPS CONNECT attempts and forwarded the third; the same subtitle session produced `And so, my fellow Americans.` → `还有你，我的美国同胞们。` In a second run, the proxy rejected four requests. The subtitle window visibly showed `网络连接中断，请检查网络。` while retaining recognized English text. After the proxy was restarted in forwarding mode, another short English excerpt in the **same app session** produced `Ask not!` → `不要问！`, and the warning cleared. These are injected proxy failures, not a physical network disconnection; the computer's system proxy was not changed. The test helpers were stopped afterward. Speaker playback alone produced no microphone signal: over 9 seconds the speaker peak reached 0.64 while the active, unmuted Realtek microphone meter stayed at 0. In the later prompted speech trial, the microphone peak reached 0.029 and the app produced the Chinese-to-English subtitle above. This verifies the microphone path for one sentence, but its recognition and translation accuracy remain open.
+
+The initial CPU recognizer added roughly 10 seconds per sample; the revised GPU measurements are reported separately above. The rapid-PCM figures are **not** phrase-end-to-screen latency. The 8-second utterance cap can split Russian speech and reduce translation quality. MyMemory's anonymous allowance is [5,000 characters per day](https://mymemory.translated.net/doc/usagelimits.php). A 30-minute end-to-end stability claim is not supported.
+
+No Azure credentials were configured or used. The default published desktop folder and extracted review package were inspected and contained no Azure Speech SDK binaries after the optional adapter was separated. The package scan also found no model weights, fixture audio, user settings, or logs. All relative links in the bundled Markdown files resolved. This is an owner review package, not a public release or a 30-minute translation acceptance.

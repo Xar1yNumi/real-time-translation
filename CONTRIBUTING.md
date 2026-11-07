@@ -1,20 +1,16 @@
 # Contributing
 
-Thanks for helping improve Real-time Translation. The project is still an MVP and has not passed its Azure live-test gate. Please read the [implementation plan](docs/superpowers/plans/2026-10-27-real-time-translation-mvp.md) and [feasibility report](docs/feasibility/azure-audio-report.md) before changing runtime behavior.
+Thanks for helping improve Real-time Translation. The current default desktop path is a local Chinese–English preview. Please read the [Chinese README](README.zh-CN.md), [privacy statement](docs/privacy.md), and [current release checklist](docs/release-checklist.md) before changing runtime behavior.
 
-## Propose a change
+Open an issue with the expected and actual behavior, Windows version, selected audio source, target language, and reproducible steps. Keep private audio, transcripts, account details, and logs out of public issues. Follow [SECURITY.md](SECURITY.md) for vulnerability reports.
 
-Open an issue describing the problem, the expected behavior, Windows version, selected audio source, target language, and reproducible steps. For feature requests, explain the user need and keep the proposal separate from the current MVP scope. A security concern should follow [SECURITY.md](SECURITY.md) instead of a public issue.
-
-## Develop and verify
-
-Use Windows x64 and the SDK version in `global.json`. Create a focused branch, add a test that checks the behavior, then run:
+For a code change, use a focused branch and run on Windows x64 with the SDK in global.json:
 
 ```powershell
 dotnet restore RealTimeTranslation.slnx --locked-mode
-dotnet format RealTimeTranslation.slnx --verify-no-changes
+dotnet format RealTimeTranslation.slnx --verify-no-changes --no-restore
 dotnet build RealTimeTranslation.slnx --configuration Release --no-restore
 dotnet test RealTimeTranslation.slnx --configuration Release --no-build
 ```
 
-Keep audio and Azure access behind the existing interfaces. Do not commit API keys, personal audio, transcript text, local settings, logs, or generated `artifacts/`. Include a short description of what changed, the test result, and any live checks that remain in the pull request. Only add audio fixtures you made or can redistribute under a documented license.
+Tests that require local models, a bundled package, audio hardware, or external services are conditional and must be reported separately. Do not commit API keys, personal recordings, transcript text, local settings, logs, generated artifacts/, or model weights. Add audio fixtures only when redistribution rights are documented. A pull request should state what changed, test results, and live checks that remain open.

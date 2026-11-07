@@ -42,13 +42,13 @@ public sealed class SubtitleStateTests
     }
 
     [Fact]
-    public void FinalTextIsLimitedToTwoDisplayLines()
+    public void FinalTextKeepsEveryRecognizedLine()
     {
         var state = SubtitleState.Empty.Apply(new FinalUtteranceUpdate(
             "result-1", 1, "one\ntwo\nthree", "一\n二\n三", "en-US"));
 
-        Assert.Equal("two\nthree", state.OriginalText.Replace("\r\n", "\n", StringComparison.Ordinal));
-        Assert.Equal("二\n三", state.TranslatedText.Replace("\r\n", "\n", StringComparison.Ordinal));
+        Assert.Equal("one\ntwo\nthree", state.OriginalText);
+        Assert.Equal("一\n二\n三", state.TranslatedText);
     }
 
     [Fact]

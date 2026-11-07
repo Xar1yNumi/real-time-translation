@@ -5,8 +5,18 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="Microsoft.CognitiveServices.Speech" />
     <PackageReference Include="NAudio" />
+    <PackageReference Include="Microsoft.ML.OnnxRuntime.Managed" />
+    <PackageReference Include="OpenccNetLib" />
+    <PackageReference Include="Whisper.net" />
+    <PackageReference Include="Whisper.net.Runtime" />
+    <PackageReference Include="Whisper.net.Runtime.Vulkan" />
+  </ItemGroup>
+
+  <ItemGroup Condition="Exists('..\..\artifacts\localtranslation-venv\Lib\site-packages\onnxruntime\capi\onnxruntime.dll')">
+    <None Include="..\..\artifacts\localtranslation-venv\Lib\site-packages\onnxruntime\capi\onnxruntime.dll"
+          Link="onnxruntime.dll" CopyToOutputDirectory="PreserveNewest"
+          CopyToPublishDirectory="PreserveNewest" />
   </ItemGroup>
 
   <ItemGroup>

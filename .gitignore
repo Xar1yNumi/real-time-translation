@@ -6,3 +6,5 @@ artifacts/
 *.user
 *.suo
 .worktrees/
+__pycache__/
+*.pyc

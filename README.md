@@ -2,61 +2,41 @@
 
 [简体中文](README.zh-CN.md)
 
-Real-time Translation is a Windows desktop project for following foreign-language videos, live streams, and online meetings with bilingual overlay subtitles. It is designed to recognize spoken Chinese, English, or Russian from **system audio** or a **microphone**, then show the source text and a translation into your chosen language. Each session uses one audio source and one target language.
+Windows desktop subtitles for spoken Chinese and English. Choose system audio or microphone and a target language. The app detects the source language and appends original text and translations to a scrollable floating window.
 
-> **Development status:** This repository contains an MVP in progress, not a validated release. Azure end-to-end translation, network recovery, and a continuous cloud session still need live testing. There is no release package yet.
+## Public source preview
 
-## What the MVP is designed to do
+Speech recognition, segmentation, and text translation run on the computer. No Azure, MyMemory, account, or API key is needed. The complete trial ZIP includes its models and Python runtime; users do not install Python. Once extracted, it can run without a network connection. The first launch verifies the bundled files, and initial speech engine preparation may take longer.
 
-- Detect `zh-CN`, `en-US`, or `ru-RU` between utterances and translate into Simplified Chinese, English, or Russian.
-- Show provisional source text and final translations in an always-on-top, draggable, two-line-per-language subtitle bar.
-- Let you pause, resume, return to settings, or close the app from the overlay.
-- Use either the Windows default playback device or the default microphone. System audio captures the **whole default playback stream**, so other sounds playing on the computer may also be included.
-- Keep the Azure API key in Windows Credential Manager and provide a control to delete it.
+This stage supports Chinese and English only. If the detected source already matches the selected target, the original is shown. Other detected languages do not produce a guessed translation. Speech, video, and songs use the same path, although music and noise may impair recognition. Per-app capture, history editing, and export are later stages.
 
-The source recognition and translation flow is implemented, but its three-language behavior and user experience have **not** been verified against a real Azure Speech resource. See the [technical feasibility report](docs/feasibility/azure-audio-report.md) and [subtitle UX checkpoint](docs/feasibility/subtitle-ux-checkpoint.md) for measured results and remaining checks.
+## Try it
 
-## Requirements
+These steps apply to a complete locally assembled trial ZIP. The public repository currently contains source only and has no downloadable complete package; follow “Build from source” below to prepare the runtime files.
 
-- Windows x64.
-- [.NET SDK 10.0.301](global.json) to build from source.
-- Your own Azure AI Speech resource, HTTPS Endpoint, and API key, plus an internet connection for translation.
-- A working default playback device or microphone.
+1. Fully extract the Windows x64 trial ZIP and run RealTimeTranslation.Desktop.exe. Keep the files together.
+2. Wait for the local components to show as ready. If they are incomplete, extract the whole package again.
+3. Select System audio for the default speaker stream or Microphone for nearby speech, then choose Simplified Chinese or English.
+4. Click Start translation. A revisable original-text preview appears first; the final original and translation are appended above. Hover over the overlay for Pause, Return to settings, and Close. Scroll to review this session; closing clears it.
 
-The application is intended to be free and open source, but **Azure usage may incur charges** under your own subscription. Check your Azure pricing and usage limits before starting a session.
+For calls, choose system audio when the other person's voice plays through the default output device. Other sounds on the same stream can also be captured. The app cannot isolate one application or speaker yet.
 
-## Build and run from source
+## Verification status
 
-```powershell
-dotnet restore RealTimeTranslation.slnx --locked-mode
-dotnet build RealTimeTranslation.slnx --configuration Release --no-restore
-dotnet test RealTimeTranslation.slnx --configuration Release --no-build
-dotnet run --project src/RealTimeTranslation.Desktop/RealTimeTranslation.Desktop.csproj --configuration Release --no-build
-```
+The extracted trial package launched on the desktop and translated fixed English and Chinese WAV samples in both directions. A 10-minute low-duty-cycle translation test passed. An English sample played through the default speaker also produced a simplified Chinese subtitle through Windows loopback. The [Task 4 report](docs/reports/2026-11-04-local-preview-vad.md) records preview and final timing; the [Task 5 report](docs/reports/2026-11-06-local-trial-task5.md) records package checks, and the [continuity report](docs/reports/2026-11-07-local-continuity.md) records queue, order, and memory measurements. The project owner waived the full live microphone translation check; it is not claimed as tested. Real song accuracy and a physical network disconnect have not been measured. The repository is a **public source preview**. The existing owner trial ZIP is not a GitHub Release asset while third-party redistribution review remains open.
 
-In the settings window:
+## Build from source
 
-1. Enter the Endpoint and API key from your Azure Speech resource, then select **Test connection**. The connection-test behavior still requires validation with valid and invalid live credentials.
-2. Choose **System audio** or **Microphone**, then select the target language.
-3. Select **Start translation**. Audio capture starts only after this action. Move the pointer over the subtitle bar to show its controls.
+Requires Windows x64 and [.NET SDK 10.0.301](global.json). A normal build does not download models or assemble the trial package. The following commands build the source and run tests that do not require local models. For live translation or a complete package, first prepare ignored files under artifacts/models, artifacts/uv-python, and artifacts/localtranslation-venv using the [model preparation instructions](tools/LocalTranslation.Probe/README.md); the [model feasibility report](docs/reports/local-zh-en-model-benchmark.md) records sources and limitations.
 
-For a call where you want to translate the other person's voice, choose system audio and route that voice through the computer's default playback device. This MVP cannot isolate one application or speaker from other sounds in the same playback stream.
+    dotnet restore RealTimeTranslation.slnx --locked-mode
+    dotnet build RealTimeTranslation.slnx --configuration Release --no-restore
+    dotnet test RealTimeTranslation.slnx --configuration Release --no-build
 
-## Privacy
+After model preparation, run `powershell -File tools/package-local-trial.ps1` to assemble a complete trial. The script does not obtain or audit every third-party redistribution license.
 
-During an active translation session, audio is sent directly from your computer to Azure AI Speech. The project does not run its own server. The application does not intentionally save captured audio, recognized text, translations, or subtitle history. Non-sensitive preferences, including the Endpoint, are saved under the current user's local application data; the API key is stored in Windows Credential Manager. Bounded diagnostic logs under `%LOCALAPPDATA%/RealTimeTranslation/logs` contain only event names, error categories, timestamps, and allowed numeric metrics. Do not put a real key in the repository, test files, logs, or issue reports. See the [privacy notes](docs/privacy.md).
+The packaging script writes artifacts/RealTimeTranslation-local-zh-en-win-x64.zip and a sibling .sha256. Models and runtime files are excluded from Git. See the [release checklist](docs/release-checklist.md) for the remaining public binary work.
 
-## Troubleshooting
+## Privacy and licenses
 
-- **Connection test fails:** check that the Endpoint is HTTPS, that the key belongs to your Azure Speech resource, and that the network can reach Azure. Authentication and network failures have separate safe messages; live behavior still needs validation.
-- **No words appear:** check the chosen source and Windows default device. System audio captures the default playback stream; a silent stream can still produce audio frames.
-- **Subtitles stop after a disconnection:** the app makes bounded 1, 2, and 4-second retries only for network or service failures. Return to settings if it reports a final failure. Real network recovery remains unverified.
-- **Unexpected Azure charges:** pause or close the session and review usage in your own Azure subscription.
-
-Screenshots are pending the Windows UI review. The [subtitle UX checkpoint](docs/feasibility/subtitle-ux-checkpoint.md) records the current interaction checks.
-
-## Project status
-
-Local automated tests and Windows audio-capture checks exist, including a 30-minute **capture-only** loopback run. They do not establish cloud translation reliability. Before a public `v0.1.0` release, the project still needs real Azure checks for Chinese, English, and Russian; latency; disconnection and recovery; overlay interaction; and at least 30 minutes of end-to-end translation. The [implementation plan](docs/superpowers/plans/2026-10-27-real-time-translation-mvp.md) tracks the remaining work.
-
-The project uses the [MIT license](LICENSE). See [CONTRIBUTING.md](CONTRIBUTING.md), [SECURITY.md](SECURITY.md), the [changelog](CHANGELOG.md), and the [release checklist](docs/release-checklist.md). A public `v0.1.0` release remains subject to the outstanding live checks and the owner's publication approval.
+Audio, text, and session history are not saved by default. Pause and Close stop capture. The default desktop path sends no text to an online translation service. See [privacy details](docs/privacy.md). Project code is [MIT licensed](LICENSE); models and dependencies carry their own [third-party licenses](THIRD_PARTY_NOTICES.md).

@@ -62,6 +62,17 @@ public sealed record TranslationCanceledUpdate : TranslationUpdate
     public AppErrorCode ErrorCode { get; }
 }
 
+public sealed record TranslationWarningUpdate : TranslationUpdate
+{
+    public TranslationWarningUpdate(string utteranceId, long sequence, AppErrorCode errorCode)
+        : base(utteranceId, sequence)
+    {
+        ErrorCode = errorCode;
+    }
+
+    public AppErrorCode ErrorCode { get; }
+}
+
 public sealed class TranslationUpdateEventArgs(TranslationUpdate update) : EventArgs
 {
     public TranslationUpdate Update { get; } = update;

@@ -1,3 +1,4 @@
+using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
 using System.Windows.Input;
@@ -8,11 +9,14 @@ namespace RealTimeTranslation.Desktop.ViewModels;
 
 public sealed class SubtitleViewModel : INotifyPropertyChanged, IDisposable
 {
+    private readonly ObservableCollection<SubtitleLine> history = [];
+    private readonly Dictionary<string, int> historyIndex = new(StringComparer.Ordinal);
     private readonly ITranslationSessionController coordinator;
     private readonly IUiDispatcher dispatcher;
     private readonly IWindowOrchestrator windows;
     private readonly Func<StartTranslationOptions?> activeOptions;
     private readonly Action onStopped;
+    private readonly bool localTranslation;
     private readonly AsyncCommand pauseResumeCommand;
     private readonly AsyncCommand returnToSettingsCommand;
     private readonly AsyncCommand closeCommand;
@@ -23,19 +27,23 @@ public sealed class SubtitleViewModel : INotifyPropertyChanged, IDisposable
     private bool areControlsVisible;
     private bool isBusy;
     private bool disposed;
+    private long lastSequence = -1;
 
     public SubtitleViewModel(
         ITranslationSessionController coordinator,
         IUiDispatcher dispatcher,
         IWindowOrchestrator windows,
         Func<StartTranslationOptions?> activeOptions,
-        Action onStopped)
+        Action onStopped,
+        bool localTranslation = false)
     {
         this.coordinator = coordinator ?? throw new ArgumentNullException(nameof(coordinator));
         this.dispatcher = dispatcher ?? throw new ArgumentNullException(nameof(dispatcher));
         this.windows = windows ?? throw new ArgumentNullException(nameof(windows));
         this.activeOptions = activeOptions ?? throw new ArgumentNullException(nameof(activeOptions));
         this.onStopped = onStopped ?? throw new ArgumentNullException(nameof(onStopped));
+        this.localTranslation = localTranslation;
+        History = new ReadOnlyObservableCollection<SubtitleLine>(history);
         connectionStatus = GetStatus(coordinator.State);
         pauseResumeCommand = new AsyncCommand(() => PauseResumeAsync(CancellationToken.None),
             () => !isBusy && coordinator.State is SessionState.Listening
@@ -45,9 +53,12 @@ public sealed class SubtitleViewModel : INotifyPropertyChanged, IDisposable
         closeCommand = new AsyncCommand(() => CloseAsync(CancellationToken.None), () => !isBusy);
         coordinator.StateChanged += OnStateChanged;
         coordinator.SubtitleChanged += OnSubtitleChanged;
+        coordinator.WarningReceived += OnWarningReceived;
     }
 
     public event PropertyChangedEventHandler? PropertyChanged;
+
+    public ReadOnlyObservableCollection<SubtitleLine> History { get; }
 
     public string OriginalText
     {
@@ -183,6 +194,7 @@ public sealed class SubtitleViewModel : INotifyPropertyChanged, IDisposable
         disposed = true;
         coordinator.StateChanged -= OnStateChanged;
         coordinator.SubtitleChanged -= OnSubtitleChanged;
+        coordinator.WarningReceived -= OnWarningReceived;
         GC.SuppressFinalize(this);
     }
 
@@ -210,33 +222,117 @@ public sealed class SubtitleViewModel : INotifyPropertyChanged, IDisposable
                 return;
             }
 
+            if (args.State == SubtitleState.Empty)
+            {
+                history.Clear();
+                historyIndex.Clear();
+                lastSequence = -1;
+                OriginalText = string.Empty;
+                TranslatedText = string.Empty;
+                IsOriginalPartial = false;
+                return;
+            }
+
             var options = activeOptions();
             if (options is null)
             {
                 return;
             }
 
+            if (args.Completed is { } completed)
+            {
+                var completedTranslation = IsSameLanguage(
+                    completed.DetectedLanguage, options.TargetLanguage)
+                    ? "与目标语言相同" : completed.TranslatedText;
+                AppendHistory(completed.UtteranceId,
+                    completed.OriginalText, completedTranslation);
+                if (!IsSameLanguage(completed.DetectedLanguage, options.TargetLanguage)
+                    && !string.IsNullOrWhiteSpace(completed.TranslatedText))
+                {
+                    ConnectionStatus = GetStatus(coordinator.State);
+                }
+            }
+
+            if (args.State.Sequence < lastSequence)
+            {
+                return;
+            }
+
+            lastSequence = args.State.Sequence;
+
             OriginalText = args.State.OriginalText;
             TranslatedText = !args.State.IsOriginalPartial
                 && IsSameLanguage(args.State.DetectedLanguage, options.TargetLanguage)
                 ? "与目标语言相同" : args.State.TranslatedText;
             IsOriginalPartial = args.State.IsOriginalPartial;
+            if (!args.State.IsOriginalPartial
+                && !string.IsNullOrWhiteSpace(args.State.OriginalText)
+                && !string.IsNullOrWhiteSpace(args.State.UtteranceId))
+            {
+                AppendHistory(args.State.UtteranceId,
+                    args.State.OriginalText, TranslatedText);
+            }
+            if (!args.State.IsOriginalPartial
+                && !IsSameLanguage(args.State.DetectedLanguage, options.TargetLanguage)
+                && !string.IsNullOrWhiteSpace(args.State.TranslatedText))
+            {
+                ConnectionStatus = GetStatus(coordinator.State);
+            }
+        });
+
+    private void AppendHistory(string utteranceId, string original, string translated)
+    {
+        if (string.IsNullOrWhiteSpace(utteranceId)
+            || string.IsNullOrWhiteSpace(original))
+        {
+            return;
+        }
+
+        var line = new SubtitleLine(original, translated);
+        if (historyIndex.TryGetValue(utteranceId, out var index))
+        {
+            if (history[index] != line)
+            {
+                history[index] = line;
+            }
+        }
+        else
+        {
+            historyIndex.Add(utteranceId, history.Count);
+            history.Add(line);
+        }
+    }
+
+    private void OnWarningReceived(object? sender, TranslationUpdateEventArgs args) =>
+        dispatcher.Invoke(() =>
+        {
+            if (!disposed && args.Update is TranslationWarningUpdate warning)
+            {
+                ConnectionStatus = AppError.For(warning.ErrorCode).UserMessage;
+            }
         });
 
     private static bool IsSameLanguage(string detected, TargetLanguage target) => target switch
     {
         TargetLanguage.SimplifiedChinese =>
-            string.Equals(detected, "zh-CN", StringComparison.OrdinalIgnoreCase),
+            string.Equals(detected, "zh-CN", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(detected, "zh", StringComparison.OrdinalIgnoreCase),
         TargetLanguage.English =>
-            string.Equals(detected, "en-US", StringComparison.OrdinalIgnoreCase),
+            string.Equals(detected, "en-US", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(detected, "en", StringComparison.OrdinalIgnoreCase),
         TargetLanguage.Russian =>
-            string.Equals(detected, "ru-RU", StringComparison.OrdinalIgnoreCase),
+            string.Equals(detected, "ru-RU", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(detected, "ru", StringComparison.OrdinalIgnoreCase),
         _ => false
     };
 
-    private static string GetStatus(SessionState state) => state switch
+    private string GetStatus(SessionState state) => state switch
     {
+        SessionState.Connecting when activeOptions()?.Endpoint == string.Empty =>
+            "正在准备识别引擎（首次约需 20 秒）",
         SessionState.Connecting => "连接中",
+        SessionState.Listening when activeOptions()?.Endpoint == string.Empty =>
+            localTranslation ? "本机识别／本机翻译中" : "本机识别／联网翻译中",
         SessionState.Listening => "正在聆听",
         SessionState.Paused => "已暂停",
         SessionState.Reconnecting => "重新连接中",
@@ -286,3 +382,5 @@ public sealed class SubtitleViewModel : INotifyPropertyChanged, IDisposable
         public void RaiseCanExecuteChanged() => CanExecuteChanged?.Invoke(this, EventArgs.Empty);
     }
 }
+
+public sealed record SubtitleLine(string OriginalText, string TranslatedText);

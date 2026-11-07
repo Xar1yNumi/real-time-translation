@@ -1,6 +1,7 @@
 ﻿using System.Configuration;
 using System.Data;
 using System.Diagnostics;
+using System.IO;
 using System.Threading;
 using System.Windows;
 using NAudio.CoreAudioApi;
@@ -8,10 +9,11 @@ using RealTimeTranslation.Core;
 using RealTimeTranslation.Desktop.Services;
 using RealTimeTranslation.Desktop.ViewModels;
 using RealTimeTranslation.Infrastructure.Audio;
-using RealTimeTranslation.Infrastructure.Azure;
-using RealTimeTranslation.Infrastructure.Credentials;
+using RealTimeTranslation.Infrastructure.LocalSpeech;
+using RealTimeTranslation.Infrastructure.LocalTranslation;
 using RealTimeTranslation.Infrastructure.Logging;
 using RealTimeTranslation.Infrastructure.Settings;
+using RealTimeTranslation.Infrastructure.Translation;
 
 namespace RealTimeTranslation.Desktop;
 
@@ -20,6 +22,8 @@ public partial class App : Application, IDisposable
     private Mutex? singleton;
     private TranslationCoordinator? coordinator;
     private SubtitleViewModel? subtitleViewModel;
+    private BundledWhisperModelStore? modelStore;
+    private LocalTranslatorHost? translator;
     private bool ownsSingleton;
     private bool disposed;
 
@@ -37,8 +41,16 @@ public partial class App : Application, IDisposable
 
         try
         {
+            var bundle = Path.Combine(AppContext.BaseDirectory, "local-data");
+            modelStore = new BundledWhisperModelStore(bundle);
+            translator = new LocalTranslatorHost(
+                Path.Combine(bundle, "python", "python.exe"),
+                Path.Combine(bundle, "worker.py"),
+                Path.Combine(bundle, "models"));
+            var noAzureProvider = new NoAzureTranslationProvider(
+                modelStore, translator, Path.Combine(bundle, "models", "silero_vad.onnx"));
             coordinator = new TranslationCoordinator(
-                new AzureTranslationProvider(),
+                noAzureProvider,
                 kind => kind switch
                 {
                     AudioSourceKind.SystemAudio => new SystemLoopbackAudioSource(),
@@ -54,18 +66,30 @@ public partial class App : Application, IDisposable
             var orchestrator = new WindowOrchestrator();
             var model = new SettingsViewModel(
                 new JsonAppSettingsStore(),
-                new WindowsCredentialStore(),
-                new AzureSpeechConnectionTester(),
-                coordinator.StartAsync,
+                modelStore,
+                async (options, token) =>
+                {
+                    await translator.PrepareAsync(token);
+                    await coordinator.StartAsync(options, token);
+                },
                 orchestrator,
-                GetCurrentDeviceName);
+                GetCurrentDeviceName,
+                localTranslation: true);
+            model.PropertyChanged += (_, args) =>
+            {
+                if (args.PropertyName == nameof(SettingsViewModel.ModelReady) && model.ModelReady)
+                {
+                    _ = Task.Run(() => PrepareRecognizerAsync(noAzureProvider));
+                }
+            };
             var window = new SettingsWindow { DataContext = model };
             subtitleViewModel = new SubtitleViewModel(
                 new CoordinatorSessionController(coordinator),
                 new WpfUiDispatcher(Dispatcher),
                 orchestrator,
                 () => model.ActiveOptions,
-                model.MarkStopped);
+                model.MarkStopped,
+                localTranslation: true);
             var subtitles = new SubtitleWindow(model) { DataContext = subtitleViewModel };
             orchestrator.AttachWindows(window, subtitles);
             MainWindow = window;
@@ -73,11 +97,25 @@ public partial class App : Application, IDisposable
             await model.InitializeAsync(CancellationToken.None);
             subtitles.RestorePosition();
         }
-        catch (Exception)
+        catch (Exception exception)
         {
+            Trace.TraceError("Desktop startup failed: {0}", exception.GetType().Name);
             MessageBox.Show("无法启动实时翻译设置窗口。", "实时翻译",
                 MessageBoxButton.OK, MessageBoxImage.Error);
             Shutdown();
+        }
+    }
+
+    private static async Task PrepareRecognizerAsync(NoAzureTranslationProvider provider)
+    {
+        try
+        {
+            await provider.PrepareAsync(CancellationToken.None);
+        }
+        catch (Exception exception)
+        {
+            Trace.TraceWarning("Background recognizer preparation failed: {0}",
+                exception.GetType().Name);
         }
     }
 
@@ -117,6 +155,9 @@ public partial class App : Application, IDisposable
         }
         finally
         {
+            modelStore?.Dispose();
+            if (translator is not null)
+                Task.Run(() => translator.DisposeAsync().AsTask()).GetAwaiter().GetResult();
             if (ownsSingleton)
             {
                 singleton?.ReleaseMutex();

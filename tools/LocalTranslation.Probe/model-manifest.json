@@ -1,0 +1,17 @@
+{
+  "source_model": "facebook/m2m100_418M",
+  "source_revision": "55c2e61bbf05dfb8d7abccdc3fae6fc8512fd636",
+  "source_license": "MIT",
+  "converted_release": "https://github.com/MuzeAnisichael/LinguaRelay/releases/tag/v0.1.5",
+  "conversion_manifest": "https://github.com/MuzeAnisichael/LinguaRelay/blob/main/packaging/model-manifest.json",
+  "archive_sha256": "5c363c4a834d0b82a61ac4fc10872387200b54db763e4e575a80cd5dabdc7638",
+  "files": {
+    "config.json": {"size": 233, "sha256": "72901fbd8abd89fb5cf4a388f26fc681f5c4c58a1e1a88b30b879f107270e7ee"},
+    "model.bin": {"size": 969807398, "sha256": "ea707f0f1c9665d0d14802708fc124b5a910c458dfab4a6a84c5c91fa6d63ea4"},
+    "sentencepiece.bpe.model": {"size": 2423393, "sha256": "d8f7c76ed2a5e0822be39f0a4f95a55eb19c78f4593ce609e2edbc2aea4d380a"},
+    "shared_vocabulary.json": {"size": 2924622, "sha256": "18916ac68f9ac8fbd5250ca603dcb3861aac8672924d93a8dadc82eb3147f941"},
+    "special_tokens_map.json": {"size": 1140, "sha256": "c1a4f86c3874d279ae1b2a05162858db5dd6c61665d84223ed886cbcff08fda6"},
+    "tokenizer_config.json": {"size": 298, "sha256": "a53e6aa83da0b82565ed90c3849056307a9453843322ac5b8439ec4b9497fe48"},
+    "vocab.json": {"size": 3708092, "sha256": "b6e77e474aeea8f441363aca7614317c06381f3eacfe10fb9856d5081d1074cc"}
+  }
+}

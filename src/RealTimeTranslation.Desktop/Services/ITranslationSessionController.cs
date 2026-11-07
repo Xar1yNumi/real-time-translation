@@ -10,6 +10,8 @@ public interface ITranslationSessionController
 
     event EventHandler<SubtitleChangedEventArgs>? SubtitleChanged;
 
+    event EventHandler<TranslationUpdateEventArgs>? WarningReceived;
+
     ValueTask PauseAsync(CancellationToken cancellationToken);
 
     ValueTask ResumeAsync(StartTranslationOptions options, CancellationToken cancellationToken);
@@ -32,6 +34,12 @@ public sealed class CoordinatorSessionController(TranslationCoordinator coordina
     {
         add => coordinator.SubtitleChanged += value;
         remove => coordinator.SubtitleChanged -= value;
+    }
+
+    public event EventHandler<TranslationUpdateEventArgs>? WarningReceived
+    {
+        add => coordinator.WarningReceived += value;
+        remove => coordinator.WarningReceived -= value;
     }
 
     public ValueTask PauseAsync(CancellationToken cancellationToken) =>

@@ -24,6 +24,67 @@ public sealed class SubtitleViewModelTests
         Assert.True(model.IsOriginalPartial);
         Assert.Equal(string.Empty, model.TranslatedText);
         Assert.Equal(1, fixture.Dispatcher.CallCount);
+        Assert.Empty(model.History);
+    }
+
+    [Fact]
+    public void FinalUtterancesAccumulateAndPartialDoesNotReplaceHistory()
+    {
+        var fixture = new Fixture();
+        using var model = fixture.Create();
+        fixture.Controller.EmitSubtitle(SubtitleState.Empty.Apply(
+            new FinalUtteranceUpdate("first", 1, "Hello", "你好", "en")));
+        fixture.Controller.EmitSubtitle(SubtitleState.Empty.Apply(
+            new PartialTranscriptUpdate("second", 2, "How are you")));
+
+        Assert.Equal("How are you", model.OriginalText);
+        Assert.Equal("你好", Assert.Single(model.History).TranslatedText);
+
+        fixture.Controller.EmitSubtitle(SubtitleState.Empty.Apply(
+            new FinalUtteranceUpdate("second", 2, "How are you?", "你好吗？", "en")));
+
+        Assert.Equal(["你好", "你好吗？"], model.History.Select(x => x.TranslatedText));
+        Assert.Equal(["Hello", "How are you?"], model.History.Select(x => x.OriginalText));
+        Assert.Equal("How are you?", model.OriginalText);
+    }
+
+    [Fact]
+    public void LateFinalAppendsHistoryWithoutReplacingCurrentPreview()
+    {
+        var fixture = new Fixture();
+        using var model = fixture.Create();
+        var preview = SubtitleState.Empty.Apply(
+            new PartialTranscriptUpdate("second", 2, "How are you"));
+        var lateFinal = new FinalUtteranceUpdate("first", 1, "Hello", "你好", "en");
+
+        fixture.Controller.EmitSubtitle(preview);
+        fixture.Controller.EmitSubtitle(preview, lateFinal);
+        fixture.Controller.EmitSubtitle(preview, lateFinal);
+
+        Assert.Equal("How are you", model.OriginalText);
+        Assert.True(model.IsOriginalPartial);
+        var line = Assert.Single(model.History);
+        Assert.Equal("Hello", line.OriginalText);
+        Assert.Equal("你好", line.TranslatedText);
+
+        fixture.Controller.EmitSubtitle(SubtitleState.Empty);
+        Assert.Empty(model.History);
+    }
+
+    [Fact]
+    public void RepeatedFinalDoesNotDuplicateHistoryAndNewSessionClearsIt()
+    {
+        var fixture = new Fixture();
+        using var model = fixture.Create();
+        var first = SubtitleState.Empty.Apply(
+            new FinalUtteranceUpdate("first", 1, "Hello", "你好", "en"));
+        fixture.Controller.EmitSubtitle(first);
+        fixture.Controller.EmitSubtitle(first);
+        Assert.Single(model.History);
+
+        fixture.Controller.EmitSubtitle(SubtitleState.Empty);
+        Assert.Empty(model.History);
+        Assert.Equal(string.Empty, model.OriginalText);
     }
 
     [Fact]
@@ -52,6 +113,109 @@ public sealed class SubtitleViewModelTests
         Assert.Equal("你好", model.OriginalText);
         Assert.Equal("与目标语言相同", model.TranslatedText);
         Assert.False(model.IsOriginalPartial);
+    }
+
+    [Fact]
+    public void ShortLanguageCodeAlsoShowsSameLanguageNotice()
+    {
+        var fixture = new Fixture();
+        using var model = fixture.Create();
+        fixture.Controller.EmitSubtitle(SubtitleState.Empty.Apply(new FinalUtteranceUpdate(
+            "utterance-1", 1, "你好", "你好", "zh")));
+
+        Assert.Equal("与目标语言相同", model.TranslatedText);
+    }
+
+    [Fact]
+    public void BacklogWarningIsVisibleWithoutClearingSubtitle()
+    {
+        var fixture = new Fixture();
+        using var model = fixture.Create();
+        fixture.Controller.EmitSubtitle(SubtitleState.Empty.Apply(new FinalUtteranceUpdate(
+            "utterance-1", 1, "Hello", "你好", "en")));
+
+        fixture.Controller.EmitWarning(new TranslationWarningUpdate(
+            "dropped", 2, AppErrorCode.AudioBacklog));
+
+        Assert.Equal(AppError.For(AppErrorCode.AudioBacklog).UserMessage, model.ConnectionStatus);
+        Assert.Equal("你好", model.TranslatedText);
+    }
+
+    [Theory]
+    [InlineData(AppErrorCode.NetworkUnavailable)]
+    [InlineData(AppErrorCode.RateLimited)]
+    public void OnlineTranslationFailureIsVisible(AppErrorCode code)
+    {
+        var fixture = new Fixture();
+        using var model = fixture.Create();
+
+        fixture.Controller.EmitWarning(new TranslationWarningUpdate("failed", 1, code));
+
+        Assert.Equal(AppError.For(code).UserMessage, model.ConnectionStatus);
+    }
+
+    [Fact]
+    public void SuccessfulTranslationClearsPreviousNetworkWarning()
+    {
+        var fixture = new Fixture();
+        fixture.ActiveOptions = new StartTranslationOptions(
+            "", "", AudioSourceKind.SystemAudio, TargetLanguage.SimplifiedChinese);
+        fixture.Controller.SetState(SessionState.Listening);
+        using var model = fixture.Create();
+        fixture.Controller.EmitWarning(new TranslationWarningUpdate(
+            "failed", 1, AppErrorCode.NetworkUnavailable));
+
+        fixture.Controller.EmitSubtitle(SubtitleState.Empty.Apply(
+            new FinalUtteranceUpdate("recovered", 2, "Hello", "你好", "en")));
+
+        Assert.Equal("本机识别／联网翻译中", model.ConnectionStatus);
+        Assert.Equal("你好", model.TranslatedText);
+    }
+
+    [Fact]
+    public void SameLanguageUtteranceDoesNotClearNetworkWarning()
+    {
+        var fixture = new Fixture();
+        fixture.ActiveOptions = new StartTranslationOptions(
+            "", "", AudioSourceKind.SystemAudio, TargetLanguage.SimplifiedChinese);
+        fixture.Controller.SetState(SessionState.Listening);
+        using var model = fixture.Create();
+        fixture.Controller.EmitWarning(new TranslationWarningUpdate(
+            "failed", 1, AppErrorCode.NetworkUnavailable));
+
+        fixture.Controller.EmitSubtitle(SubtitleState.Empty.Apply(
+            new FinalUtteranceUpdate("same-language", 2, "你好", "你好", "zh")));
+
+        Assert.Equal(AppError.For(AppErrorCode.NetworkUnavailable).UserMessage,
+            model.ConnectionStatus);
+        Assert.Equal("与目标语言相同", model.TranslatedText);
+    }
+
+    [Fact]
+    public void NoAzureListeningStateNamesLocalRecognitionAndOnlineTranslation()
+    {
+        var fixture = new Fixture();
+        fixture.ActiveOptions = new StartTranslationOptions(
+            "", "", AudioSourceKind.SystemAudio, TargetLanguage.SimplifiedChinese);
+        fixture.Controller.SetState(SessionState.Listening);
+
+        using var model = fixture.Create();
+
+        Assert.Contains("本机识别", model.ConnectionStatus);
+        Assert.Contains("联网翻译", model.ConnectionStatus);
+    }
+
+    [Fact]
+    public void BundledLocalModeShowsLocalTranslationStatus()
+    {
+        var fixture = new Fixture();
+        fixture.ActiveOptions = new StartTranslationOptions(
+            "", "", AudioSourceKind.SystemAudio, TargetLanguage.SimplifiedChinese);
+        fixture.Controller.SetState(SessionState.Listening);
+
+        using var model = fixture.Create(localTranslation: true);
+
+        Assert.Equal("本机识别／本机翻译中", model.ConnectionStatus);
     }
 
     [Fact]
@@ -195,8 +359,9 @@ public sealed class SubtitleViewModelTests
         public StartTranslationOptions? ActiveOptions { get; set; } = Options;
         public int StoppedCount { get; private set; }
 
-        public SubtitleViewModel Create() => new(
-            Controller, Dispatcher, Windows, () => ActiveOptions, () => StoppedCount++);
+        public SubtitleViewModel Create(bool localTranslation = false) => new(
+            Controller, Dispatcher, Windows, () => ActiveOptions, () => StoppedCount++,
+            localTranslation);
     }
 
     private sealed class FakeController : ITranslationSessionController
@@ -210,6 +375,7 @@ public sealed class SubtitleViewModelTests
         public TaskCompletionSource? ResumeGate { get; set; }
         public event EventHandler<CoordinatorStateChangedEventArgs>? StateChanged;
         public event EventHandler<SubtitleChangedEventArgs>? SubtitleChanged;
+        public event EventHandler<TranslationUpdateEventArgs>? WarningReceived;
 
         public void SetState(SessionState state, AppError? error = null)
         {
@@ -217,8 +383,11 @@ public sealed class SubtitleViewModelTests
             StateChanged?.Invoke(this, new CoordinatorStateChangedEventArgs(state, error));
         }
 
-        public void EmitSubtitle(SubtitleState state) =>
-            SubtitleChanged?.Invoke(this, new SubtitleChangedEventArgs(state));
+        public void EmitSubtitle(SubtitleState state, FinalUtteranceUpdate? completed = null) =>
+            SubtitleChanged?.Invoke(this, new SubtitleChangedEventArgs(state, completed));
+
+        public void EmitWarning(TranslationWarningUpdate warning) =>
+            WarningReceived?.Invoke(this, new TranslationUpdateEventArgs(warning));
 
         public ValueTask PauseAsync(CancellationToken cancellationToken)
         {
