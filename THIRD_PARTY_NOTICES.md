@@ -1,6 +1,6 @@
-# Third-party notices for the default desktop package
+# Third-party notices for the local desktop preview
 
-The default Windows trial includes these components:
+The source project uses the components below. The existing owner trial ZIP also bundles their runtime files and model data. That ZIP has not completed its public redistribution audit.
 
 | Component | Version | License and attribution |
 | --- | --- | --- |
@@ -17,7 +17,8 @@ The default Windows trial includes these components:
 | [CTranslate2](https://github.com/OpenNMT/CTranslate2) | 4.8.4 | MIT; local machine translation inference. |
 | [SentencePiece](https://github.com/google/sentencepiece) | 0.2.1 | Apache-2.0; model tokenization. |
 | [OpenCC Python](https://github.com/yichen0831/opencc-python) | 0.1.7 | Apache-2.0; simplified Chinese conversion. |
-| [OPUS-MT English↔Chinese](https://huggingface.co/Helsinki-NLP) | pinned revisions in model metadata | CC-BY-4.0; Helsinki-NLP / OPUS-MT. The bundled model folders retain their LICENCE.txt files and conversion metadata. |
+| [OPUS-MT English→Chinese](https://huggingface.co/Helsinki-NLP/opus-mt-en-zh/tree/408d9bc410a388e1d9aef112a2daba955b945255) | pinned revision `408d9bc` | Apache-2.0 according to the upstream model card at this revision; Helsinki-NLP / OPUS-MT. The third-party converted archive currently labels this model CC-BY-4.0, so its metadata must be reconciled before public binary redistribution. |
+| [OPUS-MT Chinese→English](https://huggingface.co/Helsinki-NLP/opus-mt-zh-en/tree/cf109095479db38d6df799875e34039d4938aaa6) | pinned revision `cf109095` | [CC-BY-4.0](https://creativecommons.org/licenses/by/4.0/); Helsinki-NLP / OPUS-MT. Converted to CTranslate2 by Live Translator. |
 
 The MIT permission notice for the MIT components follows. OpenCC dictionary data is covered separately by the bundled Apache-2.0 license. Each upstream repository contains its own license and further attribution information.
 
@@ -27,6 +28,6 @@ The above copyright notice and this permission notice shall be included in all c
 
 THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-The local owner trial bundles a [pinned whisper.cpp speech model](https://huggingface.co/ggerganov/whisper.cpp), the Silero VAD model, two OPUS-MT directions, and a Python environment. Python's installed package metadata and license files remain in the runtime folder. A public binary release requires a separate review of every transitive package's notices and model distribution terms.
+The local owner trial bundles a [pinned whisper.cpp speech model](https://huggingface.co/ggerganov/whisper.cpp), the Silero VAD model, two OPUS-MT directions, and a CPython environment. Python's installed package metadata and license files remain in that runtime folder, including NumPy's third-party notices and ONNX Runtime's ThirdPartyNotices.txt. The Python environment also includes CTranslate2 native DLLs such as Intel OpenMP and NVIDIA cuDNN. A public binary release requires a separate review of those native redistributions, every installed Python package's notices, and both converted models. This source notice is not a claim that the existing ZIP is ready for public download.
 
 The optional Azure adapter and Microsoft Cognitive Services Speech SDK are retained as source project dependencies for later evaluation. They are not included in the default desktop package.

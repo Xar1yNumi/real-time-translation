@@ -1,10 +1,14 @@
-name: package review
+name: source validation
 
 on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
   workflow_dispatch:
 
 jobs:
-  package:
+  validate:
     runs-on: windows-latest
     permissions:
       contents: read
@@ -14,23 +18,6 @@ jobs:
         with:
           dotnet-version: 10.0.301
       - run: dotnet restore RealTimeTranslation.slnx --locked-mode
-      - run: dotnet format RealTimeTranslation.slnx --verify-no-changes
-      - run: dotnet test RealTimeTranslation.slnx --configuration Release --no-restore
-      - run: dotnet publish src/RealTimeTranslation.Desktop/RealTimeTranslation.Desktop.csproj --configuration Release --runtime win-x64 --self-contained true --output artifacts/win-x64 -p:RestoreLockedMode=true
-      - shell: pwsh
-        run: |
-          Copy-Item LICENSE, THIRD_PARTY_NOTICES.md, README.md, README.zh-CN.md, CONTRIBUTING.md, SECURITY.md, CHANGELOG.md, global.json -Destination artifacts/win-x64
-          Copy-Item docs -Destination artifacts/win-x64 -Recurse
-          $azureFiles = Get-ChildItem artifacts/win-x64 -Recurse -File | Where-Object { $_.Extension -in '.dll', '.exe' -and $_.Name -match 'Azure|CognitiveServices' }
-          if ($azureFiles) { throw 'Default desktop package unexpectedly contains Azure SDK files.' }
-          $privateFiles = Get-ChildItem artifacts/win-x64 -Recurse -File | Where-Object { $_.Name -match '^(ggml-.*\.bin|.*\.wav|.*\.mp3|settings\.json|.*\.log)$' }
-          if ($privateFiles) { throw 'Review package unexpectedly contains model weights, audio, settings, or logs.' }
-          Compress-Archive -Path artifacts/win-x64/* -DestinationPath artifacts/RealTimeTranslation-noazure-win-x64.zip
-          (Get-FileHash artifacts/RealTimeTranslation-noazure-win-x64.zip -Algorithm SHA256).Hash | Set-Content artifacts/RealTimeTranslation-noazure-win-x64.sha256
-      - uses: actions/upload-artifact@v4
-        with:
-          name: noazure-win-x64-review
-          path: |
-            artifacts/RealTimeTranslation-noazure-win-x64.zip
-            artifacts/RealTimeTranslation-noazure-win-x64.sha256
-          retention-days: 7
+      - run: dotnet format RealTimeTranslation.slnx --verify-no-changes --no-restore
+      - run: dotnet build RealTimeTranslation.slnx --configuration Release --no-restore
+      - run: dotnet test RealTimeTranslation.slnx --configuration Release --no-build

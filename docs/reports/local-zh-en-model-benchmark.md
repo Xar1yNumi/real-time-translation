@@ -36,7 +36,7 @@ M2M100 的英译中质量未通过。固定样例中，`Please get off at the ne
 | 英→中 | `408d9bc410a388e1d9aef112a2daba955b945255` | `1748dfa40aadf2aea67eff4d6845d8aabbd3093604fc22125b7232f17f404947` | CC-BY-4.0 |
 | 中→英 | `cf109095479db38d6df799875e34039d4938aaa6` | `5aa44cb302ea85132b041b5c5dd7e76dbad92aa4cc4537674ee4389a0dbd3cef` | CC-BY-4.0 |
 
-两个 ZIP 的实际 SHA-256 均匹配发布清单，包内 `opus_mt.json` 的原模型提交、方向与许可也匹配。转换过程由第三方执行，本项目没有独立重新转换；最终发布需保留包内 `LICENCE.txt` 署名与 [CC-BY-4.0 许可](https://creativecommons.org/licenses/by/4.0/)链接。
+两个 ZIP 的实际 SHA-256 均匹配发布清单，包内 `opus_mt.json` 的原模型提交、方向与转换包声明匹配。转换过程由第三方执行，本项目没有独立重新转换。**2026-11-07 许可复核补充：**[英→中原模型的固定修订版](https://huggingface.co/Helsinki-NLP/opus-mt-en-zh/tree/408d9bc410a388e1d9aef112a2daba955b945255)在上游模型页标为 Apache-2.0，与转换包 `LICENCE.txt` 的 CC-BY-4.0 不一致；[中→英原模型](https://huggingface.co/Helsinki-NLP/opus-mt-zh-en/tree/cf109095479db38d6df799875e34039d4938aaa6)标为 CC-BY-4.0。上表记录的是当时转换包声明，不能当作公开二进制分发的最终许可结论。必须先核对并修正英→中的许可元数据、保留两方向的作者和转换归属，并完成其余依赖审计。
 
 首次使用 `source.spm` 编码后没有加 `</s>`，中→英出现整句重复。补上结束 token 后，用同一组八句重新测试，两方向均非空、语义基本正确，英→中还需以 OpenCC 统一简体。英→中“网络断开”不再被译反；“实时翻译字幕”译为“我在测试实时翻译字幕”。中文问候句的“Hello”在英→中输出中被省略，尚有细节误差，不能据这八句宣称通用翻译质量已经验收。
 

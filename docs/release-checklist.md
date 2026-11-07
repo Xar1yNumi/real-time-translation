@@ -1,34 +1,27 @@
-# Short-trial review and public release checklist
+# Public preview release checklist
 
-Status: **owner review package, not a public `v0.1.0` release**. The default desktop app runs without Azure credentials. Anonymous MyMemory service limits and phrase-boundary delays constrain this short trial. The old Azure cloud acceptance remains deferred until the owner decides whether to use Azure.
+Status: **Chinese–English local MVP preview**. This is the current release baseline; Azure is optional legacy source code and is not part of the default desktop application. The owner authorized publication of the current project on 2026-11-07.
 
-## Review package
+## Repository
 
-- [x] The default desktop flow has no Azure credential gate; model validation and text-sharing consent gate Start.
-- [x] English, Chinese, and Russian audio have produced recognized source text and real online translations on this PC. See the [trial report](feasibility/no-azure-trial-report.md).
-- [x] Six text translation directions returned live HTTPS translations without credentials.
-- [x] The no-Azure desktop publish does not contain Azure Speech SDK binaries.
-- [x] Run locked restore, format, Release build, and the complete automated suite after the subtitle-history and Vulkan revisions: 173 passed, 11 conditional skips, zero failures.
-- [x] Produce the self-contained `win-x64` ZIP and SHA-256 in desktop `artifacts/`, extract it, launch the extracted app, and observe a real English-to-Chinese floating subtitle.
-- [x] Verify every relative link included in the archive and scan it for credentials, user audio, model weights, logs, and sample fixtures.
-- [x] Confirm microphone signal and a real translated sentence from that source. Prompted Chinese speech produced an English subtitle; the latter clause was inaccurate, so quality acceptance remains open.
-- [x] Confirm recovery in the same app session after an app-scoped proxy returned two connection failures and then forwarded the next request; a real Chinese subtitle appeared.
-- [x] Confirm the visible network warning during four consecutive proxy failures, then restore forwarding and observe a new real translation and cleared warning without restarting the app.
-- [x] Retain each finalized subtitle pair for the whole current session, with scrolling and an independent partial line; verify reset, duplicates, and multi-line text in automated tests.
-- [x] Benchmark GPU recognition on English, Chinese, and Russian clips; run all three opt-in online audio chains after preparation. See the revision in the [trial report](feasibility/no-azure-trial-report.md).
-- [x] Build the revised self-contained ZIP, verify its SHA-256, extract it, compare the executable hash, confirm the Vulkan runtime is present, and check all bundled relative links. The new archive contains no Azure SDK binaries, model weights, audio fixtures, or logs.
-- [ ] Inspect the revised floating window visually in a launched review package. The preview launch encountered an application approval timeout.
-- [x] Add original-text previews before phrase end without sending them to MyMemory; keep a bounded latest-only preview task and preserve final subtitle history when earlier translations arrive late.
-- [x] Rebuild Release with 0 warnings/errors; run 193 regular tests: 179 passed, 14 conditional skips, 0 failures; verify C# format.
-- [x] Run timed English and Chinese WAV tests and a real default-speaker loopback test. Preview appeared around 1.6 seconds; online final timing varied. See the [progressive trial report](reports/2026-11-02-progressive-subtitle-trial.md).
-- [x] Build and extract `artifacts/RealTimeTranslation-noazure-progressive-20261102-win-x64.zip`; archive and executable hashes match, and no Azure SDK, audio sample, model weight, or log file is bundled.
-- [ ] Visually inspect the new progressive review package. Launch showed the application's single-instance notice because another instance was already running; no current overlay rendering was observed.
+- [x] Project source has an MIT LICENSE, bilingual README, contribution guide, security policy, privacy statement, and third-party notices.
+- [x] Source and test fixtures contain no model weights, personal audio, credentials, generated packages, or local settings. artifacts/ is ignored by Git.
+- [x] Default desktop path uses bundled local speech recognition and Chinese–English translation, with no account, API key, or network service.
+- [ ] Merge the current branch into main and make the GitHub repository public.
+- [ ] Verify the public repository and its default branch from an unauthenticated view.
 
-## Public `v0.1.0` decision
+## Binary package
 
-- [ ] Owner reviews actual translation accuracy and phrase-end latency, especially Russian fragments and the first-start preparation delay.
-- [ ] Test on a separate clean Windows x64 machine.
-- [ ] Determine whether a service with anonymous daily limits is acceptable for the intended use and whether Azure should return as an optional provider.
-- [ ] Measure sustained end-to-end runtime and service reliability; the existing 30-minute capture-only test does not establish translation stability.
-- [ ] Review all third-party licenses, model terms, copyright holder in [LICENSE](../LICENSE), and [notices](../THIRD_PARTY_NOTICES.md).
-- [ ] Obtain explicit owner approval before a public GitHub Release, `v0.1.0` tag, or public repository change.
+- [x] Desktop ZIP was produced and extracted on Windows x64; both translation directions and a default-speaker loopback path produced subtitles. See [Task 5](reports/2026-11-06-local-trial-task5.md).
+- [x] A 10-minute low-duty-cycle test of the extracted package passed with ordered subtitles and bounded queues. See [continuity results](reports/2026-11-07-local-continuity.md).
+- [ ] Finish the redistribution audit for bundled CPython packages, native DLLs, and converted models. The upstream English-to-Chinese model declares Apache-2.0 at the pinned revision; local conversion metadata currently says CC-BY-4.0 and must be corrected before distributing a binary.
+- [ ] Build a fresh package from the final public commit, verify SHA-256, inspect its contents, and publish it as a GitHub Release asset only after the license audit is complete.
+
+## Limits to disclose
+
+- Only Chinese↔English translation is supported. Recognition may be inaccurate with music, background noise, or multiple speakers.
+- System audio is the entire default playback stream; individual applications and speakers cannot be isolated.
+- The 10-minute test had about five seconds of speech per minute. A 30-minute high-duty-cycle or WPF-window soak test has not been run.
+- A physical network disconnect was not measured. Full live microphone translation was waived by the owner; it is not claimed as tested.
+
+This checklist distinguishes a public **source preview** from a public **binary release**. Do not publish the existing owner trial ZIP as a release asset while its redistribution review is open.

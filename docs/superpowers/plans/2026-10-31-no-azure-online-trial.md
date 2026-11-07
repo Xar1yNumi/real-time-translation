@@ -10,7 +10,7 @@
 
 ## Global Constraints
 
-- Work in the desktop checkout `C:\Users\ChenX\Desktop\Real-time translation` on `codex/noazure-short-trial`; the owner asked to inspect this folder directly.
+- Work in the desktop checkout on `codex/noazure-short-trial`; the owner asked to inspect this folder directly.
 - The [approved design](../specs/2026-10-31-no-azure-online-trial-design.md) controls privacy, six language directions, first-use model download and short-trial limits.
 - Never require Azure Endpoint, API Key or an account for this trial. Do not send audio to MyMemory; send only confirmed text after explicit user consent.
 - MyMemory anonymous use is capped at 5,000 characters per day and each `q` is limited to 500 UTF-8 bytes. Do not imply unlimited use or 30-minute acceptance.
