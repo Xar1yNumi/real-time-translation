@@ -21,7 +21,7 @@ For calls, choose system audio when the other person's voice plays through the d
 
 ## Verification status
 
-The extracted trial package launched on the desktop and translated fixed English and Chinese WAV samples in both directions. A 10-minute continuous translation test passed. An English sample played through the default speaker also produced a simplified Chinese subtitle through Windows loopback. The [Task 4 report](docs/reports/2026-11-04-local-preview-vad.md) records preview and final timing; the [Task 5 report](docs/reports/2026-11-06-local-trial-task5.md) records package checks and limits. The project owner waived the full live microphone translation check for this stage. Real song accuracy and a physical network disconnect have not been measured. This package is for owner acceptance, not a public v0.1.0 release.
+The extracted trial package launched on the desktop and translated fixed English and Chinese WAV samples in both directions. A 10-minute continuous translation test passed. An English sample played through the default speaker also produced a simplified Chinese subtitle through Windows loopback. The [Task 4 report](docs/reports/2026-11-04-local-preview-vad.md) records preview and final timing; the [Task 5 report](docs/reports/2026-11-06-local-trial-task5.md) records package checks, and the [continuity report](docs/reports/2026-11-07-local-continuity.md) records queue, order, and memory measurements. The project owner waived the full live microphone translation check for this stage. Real song accuracy and a physical network disconnect have not been measured. This package is for owner acceptance, not a public v0.1.0 release.
 
 ## Build from source
 

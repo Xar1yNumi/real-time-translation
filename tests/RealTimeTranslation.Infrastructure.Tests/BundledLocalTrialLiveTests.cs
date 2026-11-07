@@ -1,4 +1,6 @@
 using NAudio.Wave;
+using System.Collections.Concurrent;
+using System.ComponentModel;
 using System.Diagnostics;
 using RealTimeTranslation.Core;
 using RealTimeTranslation.Infrastructure.LocalSpeech;
@@ -22,24 +24,28 @@ public sealed class BundledLocalTrialLiveTests
 
         var bundle = Path.Combine(package, "local-data");
         using var store = new BundledWhisperModelStore(bundle);
+        var pythonPath = Path.Combine(bundle, "python", "python.exe");
+        var existingPythonIds = GetPythonProcessIds();
         await using var translator = new LocalTranslatorHost(
-            Path.Combine(bundle, "python", "python.exe"),
+            pythonPath,
             Path.Combine(bundle, "worker.py"),
             Path.Combine(bundle, "models"));
         await translator.PrepareAsync(TestContext.Current.CancellationToken);
+        using var workerProcess = FindBundledWorker(pythonPath, existingPythonIds);
+        Assert.NotNull(workerProcess);
         await using var provider = new NoAzureTranslationProvider(
             store, translator, Path.Combine(bundle, "models", "silero_vad.onnx"));
         await using var session = await provider.CreateSessionAsync(
             new TranslationSessionOptions("", "", TargetLanguage.SimplifiedChinese),
             TestContext.Current.CancellationToken);
 
-        var finals = 0;
+        var completed = new ConcurrentQueue<FinalUtteranceUpdate>();
         var failures = 0;
         session.UpdateReceived += (_, args) =>
         {
             if (args.Update is FinalUtteranceUpdate final &&
                 !string.IsNullOrWhiteSpace(final.TranslatedText))
-                Interlocked.Increment(ref finals);
+                completed.Enqueue(final);
             if (args.Update is TranslationCanceledUpdate)
                 Interlocked.Increment(ref failures);
         };
@@ -53,6 +59,11 @@ public sealed class BundledLocalTrialLiveTests
         var silence = new byte[3_200];
         var timer = Stopwatch.StartNew();
         var chunkIndex = 0;
+        var peakPending = 0;
+        var peakBufferedBytes = 0;
+        var memorySamples = new List<(long TestHostBytes, long WorkerBytes)>();
+        var localSession = Assert.IsType<NoAzureTranslationSession>(session);
+        using var testHostProcess = Process.GetCurrentProcess();
         await session.StartAsync(TestContext.Current.CancellationToken);
         try
         {
@@ -72,6 +83,17 @@ public sealed class BundledLocalTrialLiveTests
                         TestContext.Current.CancellationToken);
                 }
                 chunkIndex++;
+                peakPending = Math.Max(peakPending, localSession.PendingUtterances);
+                peakBufferedBytes = Math.Max(peakBufferedBytes, localSession.BufferedPcmBytes);
+                if (chunkIndex % 600 == 0)
+                {
+                    testHostProcess.Refresh();
+                    workerProcess.Refresh();
+                    Assert.False(workerProcess.HasExited,
+                        "Bundled Python worker disappeared during the run.");
+                    memorySamples.Add((testHostProcess.PrivateMemorySize64,
+                        workerProcess.PrivateMemorySize64));
+                }
                 var next = TimeSpan.FromMilliseconds(chunkIndex * 100L) - timer.Elapsed;
                 if (next > TimeSpan.Zero)
                     await Task.Delay(next, TestContext.Current.CancellationToken);
@@ -83,12 +105,28 @@ public sealed class BundledLocalTrialLiveTests
             await session.StopAsync(CancellationToken.None);
         }
 
+        var finals = completed.ToArray();
         Assert.True(timer.Elapsed >= TimeSpan.FromMinutes(10));
-        Assert.True(finals >= 8, $"Expected 8 or more completed translations, got {finals}.");
+        Assert.True(finals.Length >= 8,
+            $"Expected 8 or more completed translations, got {finals.Length}.");
+        Assert.Equal(finals.Length, finals.Select(item => item.UtteranceId).Distinct().Count());
+        Assert.True(finals.Zip(finals.Skip(1)).All(pair =>
+            pair.First.Sequence < pair.Second.Sequence));
         Assert.Equal(0, failures);
+        Assert.InRange(peakPending, 0, 2);
+        Assert.InRange(peakBufferedBytes, 0, 768_000);
+        Assert.True(memorySamples.Count >= 8);
+        const long maxGrowthBytes = 512L * 1_048_576;
+        var testHostGrowth = memorySamples.Max(sample => sample.TestHostBytes)
+            - memorySamples[0].TestHostBytes;
+        var workerGrowth = memorySamples.Max(sample => sample.WorkerBytes) - memorySamples[0].WorkerBytes;
+        Assert.InRange(testHostGrowth, 0, maxGrowthBytes);
+        Assert.InRange(workerGrowth, 0, maxGrowthBytes);
         TestContext.Current.TestOutputHelper?.WriteLine(
-            $"Duration={timer.Elapsed}; completed={finals}; failures={failures}; " +
-            $"chunks={chunkIndex}; process-private-MB={Process.GetCurrentProcess().PrivateMemorySize64 / 1_048_576}");
+            $"Duration={timer.Elapsed}; completed={finals.Length}; failures={failures}; " +
+            $"chunks={chunkIndex}; peak-pending={peakPending}; peak-buffered-bytes={peakBufferedBytes}; " +
+            $"testhost-growth-MiB={testHostGrowth / 1_048_576}; " +
+            $"worker-growth-MiB={workerGrowth / 1_048_576}");
     }
 
     [Trait("Category", "LocalLive")]
@@ -105,15 +143,21 @@ public sealed class BundledLocalTrialLiveTests
         var bundle = Path.Combine(package, "local-data");
         using var store = new BundledWhisperModelStore(bundle);
         Assert.NotNull(await store.VerifyCachedAsync(TestContext.Current.CancellationToken));
+        var pythonPath = Path.Combine(bundle, "python", "python.exe");
+        var existingPythonIds = GetPythonProcessIds();
         await using var translator = new LocalTranslatorHost(
-            Path.Combine(bundle, "python", "python.exe"),
+            pythonPath,
             Path.Combine(bundle, "worker.py"),
             Path.Combine(bundle, "models"));
         await translator.PrepareAsync(TestContext.Current.CancellationToken);
+        using var workerProcess = FindBundledWorker(pythonPath, existingPythonIds);
+        Assert.NotNull(workerProcess);
         Assert.Contains('中', await translator.TranslateAsync(
             "Chinese language", "en", TestContext.Current.CancellationToken));
         Assert.Contains("hello", (await translator.TranslateAsync(
             "你好", "zh", TestContext.Current.CancellationToken)).ToLowerInvariant());
+        workerProcess.Refresh();
+        Assert.True(workerProcess.PrivateMemorySize64 > 0);
 
         await using var provider = new NoAzureTranslationProvider(
             store, translator, Path.Combine(bundle, "models", "silero_vad.onnx"));
@@ -167,5 +211,37 @@ public sealed class BundledLocalTrialLiveTests
                !File.Exists(Path.Combine(directory.FullName, "RealTimeTranslation.slnx")))
             directory = directory.Parent;
         return directory?.FullName ?? throw new DirectoryNotFoundException();
+    }
+
+    private static HashSet<int> GetPythonProcessIds()
+    {
+        var processes = Process.GetProcessesByName("python");
+        try
+        {
+            return processes.Select(process => process.Id).ToHashSet();
+        }
+        finally
+        {
+            foreach (var process in processes) process.Dispose();
+        }
+    }
+
+    private static Process? FindBundledWorker(string pythonPath, HashSet<int> existingIds)
+    {
+        foreach (var process in Process.GetProcessesByName("python"))
+        {
+            var matches = false;
+            try
+            {
+                matches = !existingIds.Contains(process.Id) &&
+                    string.Equals(process.MainModule?.FileName, pythonPath,
+                        StringComparison.OrdinalIgnoreCase);
+            }
+            catch (Win32Exception) { }
+            catch (InvalidOperationException) { }
+            if (matches) return process;
+            process.Dispose();
+        }
+        return null;
     }
 }
