@@ -27,7 +27,7 @@ The extracted trial package launched on the desktop and translated fixed English
 
 ## Build from source
 
-Requires Windows x64 and [.NET SDK 10.0.301](global.json). A normal build does not download models or assemble the trial package. The following commands build the source and run tests that do not require local models. For live translation or a complete package, first prepare ignored files under artifacts/models, artifacts/uv-python, and artifacts/localtranslation-venv using the [model preparation instructions](tools/LocalTranslation.Probe/README.md); the [model feasibility report](docs/reports/local-zh-en-model-benchmark.md) records sources and limitations.
+Requires Windows x64 and [.NET SDK 10.0.301](global.json). A normal build does not download models or assemble the trial package. The following commands build the source and run tests that do not require local models. For live translation or a complete package, follow the [complete local build guide](docs/build-local-preview.md) to prepare ignored model and Python files; the [model feasibility report](docs/reports/local-zh-en-model-benchmark.md) records sources and limitations.
 
     dotnet restore RealTimeTranslation.slnx --locked-mode
     dotnet build RealTimeTranslation.slnx --configuration Release --no-restore

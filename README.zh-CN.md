@@ -27,7 +27,7 @@
 
 ## 从源码构建
 
-需要 Windows x64 和 [.NET SDK 10.0.301](global.json)。普通 dotnet build 不会下载模型或构造试用包。可先按下列命令编译并运行不依赖模型的测试。若要运行真实翻译或制作完整包，需先按[模型准备说明](tools/LocalTranslation.Probe/README.md)准备 Git 忽略的 artifacts/models、artifacts/uv-python、artifacts/localtranslation-venv；模型来源及限制另见[可行性报告](docs/reports/local-zh-en-model-benchmark.md)。
+需要 Windows x64 和 [.NET SDK 10.0.301](global.json)。普通 dotnet build 不会下载模型或构造试用包。可先按下列命令编译并运行不依赖模型的测试。若要运行真实翻译或制作完整包，按[完整本机版构建说明](docs/build-local-preview.md)准备 Git 忽略的模型和 Python 文件；模型来源及限制另见[可行性报告](docs/reports/local-zh-en-model-benchmark.md)。
 
     dotnet restore RealTimeTranslation.slnx --locked-mode
     dotnet build RealTimeTranslation.slnx --configuration Release --no-restore

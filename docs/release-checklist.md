@@ -7,7 +7,8 @@ Status: **Chinese–English local MVP preview**. This is the current release bas
 - [x] Project source has an MIT LICENSE, bilingual README, contribution guide, security policy, privacy statement, and third-party notices.
 - [x] Source and test fixtures contain no model weights, personal audio, credentials, generated packages, or local settings. artifacts/ is ignored by Git.
 - [x] Default desktop path uses bundled local speech recognition and Chinese–English translation, with no account, API key, or network service.
-- [ ] Merge the current branch into main and make the GitHub repository public.
+- [x] Merge the current branch into main; PR #1 passed both GitHub Actions checks and was squash-merged on 2026-11-07.
+- [ ] Make the GitHub repository public. The GitHub connector has no visibility-write operation; the in-app browser was signed out, and automatic approval rejected extracting a Git credential for a direct API request.
 - [ ] Verify the public repository and its default branch from an unauthenticated view.
 
 ## Binary package
