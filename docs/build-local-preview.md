@@ -6,7 +6,7 @@ The Windows x64 release includes the application, speech and translation models,
 
 - Windows x64, [.NET SDK 10.0.301](../global.json), PowerShell, and [uv](https://docs.astral.sh/uv/getting-started/installation/).
 - About 4 GB for upstream models and conversion tools, plus free space for the assembled ZIP.
-- The audited CPU wheel artifact from the [CTranslate2 build workflow](../.github/workflows/build-cpu-translation.yml). It compiles CTranslate2 4.8.4 with OpenBLAS and Ruy, and without Intel or NVIDIA inference runtimes. The current release packaging script pins the audited wheel SHA-256 `A8375961B786F6D7971EB78582197AFC9698326A004F617BFCF4E0916C683A8E`.
+- The audited CPU wheel artifact from the [CTranslate2 build workflow](../.github/workflows/build-cpu-translation.yml). It compiles CTranslate2 4.8.4 with threaded OpenBLAS and Ruy, and without Intel or NVIDIA inference runtimes. The current release packaging script pins the audited wheel SHA-256 `8DF9A7B07A9E1B380D1048F26736F6565C98078CEF1548C82EC4B58089C26EFC`.
 
 ## Prepare runtime and models
 
@@ -35,13 +35,13 @@ Verify the speech model SHA-256 values before packaging:
 
 `prepare-upstream-models.ps1` downloads the exact Helsinki-NLP revisions and verifies the source SHA-256 hashes in [the manifest](../tools/LocalTranslation.Probe/upstream-model-manifest.json). It then converts each model with CTranslate2 and verifies the resulting weights. The release package adds direction-specific attribution files from the upstream metadata.
 
-Extract the CPU workflow artifact into `artifacts/cpu-translation-build/`, then unpack its wheel into `artifacts/cpu-translation-wheel/`. For example:
+Extract the CPU workflow artifact into `artifacts/cpu-translation-threaded-build/`, then unpack its wheel into `artifacts/cpu-translation-threaded-wheel/`. For example:
 
 ```powershell
 Add-Type -AssemblyName System.IO.Compression
 [IO.Compression.ZipFile]::ExtractToDirectory(
-    (Resolve-Path artifacts/cpu-translation-build/ctranslate2-4.8.4-cp311-cp311-win_amd64.whl).Path,
-    (Join-Path $PWD 'artifacts/cpu-translation-wheel'))
+    (Resolve-Path artifacts/cpu-translation-threaded-build/ctranslate2-4.8.4-cp311-cp311-win_amd64.whl).Path,
+    (Join-Path $PWD 'artifacts/cpu-translation-threaded-wheel'))
 ```
 
 The native ONNX Runtime DLL comes from the pinned `onnxruntime==1.23.2` Python package in the conversion environment. The package script verifies that DLL and the CPU inference wheel against the audited release hashes.

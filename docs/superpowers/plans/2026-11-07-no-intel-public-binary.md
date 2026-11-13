@@ -20,7 +20,7 @@
 
 **Files:** `.github/workflows/build-cpu-translation.yml`, `tools/build-cpu-translation.ps1`.
 
-- [x] Pin the CTranslate2 v4.8.4 source commit, OpenBLAS DLL hash and build flags in the Windows CI workflow. The audited wheel hash remains the release input lock.
+- [x] Pin the CTranslate2 v4.8.4 source commit and build flags in the Windows CI workflow. Verify the OpenBLAS threaded backend, then pin the audited wheel and native DLL hashes in the packaging script.
 - [x] Build and install OpenBLAS, compile the C++ library and Python wheel; upload an internal CI artifact.
 - [x] Inspect wheel DLLs/imports for Intel/NVIDIA dependencies and run a two-direction sample on the owner PC.
 - [x] Record source hashes, dependency notices, and translation latency. Commit only after a passing build.
@@ -41,7 +41,7 @@
 - [x] Package only the new wheel, model files, Python runtime and WPF app; reject Intel/NVIDIA DLLs and stale model hashes.
 - [x] Include OpenBLAS/Ruy and other applicable license texts and provenance notes.
 - [x] Run locked restore, Release build, direct test runners, extracted-ZIP two-direction live test, latency probe and 10-minute stability test.
-- [ ] Verify ZIP SHA-256 and contents, then commit and push for CI review.
+- [x] Verify ZIP SHA-256 and contents, then commit and push for CI review.
 
 ### Task 4: Publish
 

@@ -23,10 +23,10 @@ foreach ($path in @($pythonSource, $packagesSource, $modelsSource)) {
 }
 $manifest = Get-Content -LiteralPath (Join-Path $repository 'tools/LocalTranslation.Probe/upstream-model-manifest.json') -Raw |
     ConvertFrom-Json
-$wheel = Join-Path $artifacts 'cpu-translation-build/ctranslate2-4.8.4-cp311-cp311-win_amd64.whl'
+$wheel = Join-Path $artifacts 'cpu-translation-threaded-build/ctranslate2-4.8.4-cp311-cp311-win_amd64.whl'
 if (-not (Test-Path -LiteralPath $wheel -PathType Leaf) -or
     (Get-FileHash -LiteralPath $wheel -Algorithm SHA256).Hash -ne
-        'A8375961B786F6D7971EB78582197AFC9698326A004F617BFCF4E0916C683A8E') {
+        '8DF9A7B07A9E1B380D1048F26736F6565C98078CEF1548C82EC4B58089C26EFC') {
     throw 'Independent CPU translation wheel is missing or differs from the audited CI artifact.'
 }
 if ((Test-Path -LiteralPath $output) -or (Test-Path -LiteralPath $archive)) {
@@ -110,9 +110,9 @@ Add-Type -AssemblyName System.IO.Compression.FileSystem
 $cpuDll = Join-Path $packageDestination 'ctranslate2/ctranslate2.dll'
 $blasDll = Join-Path $packageDestination 'ctranslate2/openblas.dll'
 if ((Get-FileHash -LiteralPath $cpuDll -Algorithm SHA256).Hash -ne
-        '2147B3E58E5C2380601025D588DE76B7931F8B17100D976CD69F9104129CAE15' -or
+        '1126D423BD475192FDF0640E0B7A13B697CA4829D51AA4995E1DF46FCA63C169' -or
     (Get-FileHash -LiteralPath $blasDll -Algorithm SHA256).Hash -ne
-        '75E0F2E92A8DED274CF519473989C5FBF891DD9F8326C57673A61E27FAD557A9') {
+        'EB36FC978B0C07A4183061ED787FA381B1A7A89A2C908544FE690662B80B4F9A') {
     throw 'Packaged CPU native DLLs differ from the audited wheel.'
 }
 Copy-Item -LiteralPath (Join-Path $repository 'tools/LocalTranslation.Worker/worker.py') `

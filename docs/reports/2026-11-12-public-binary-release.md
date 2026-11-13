@@ -3,13 +3,21 @@
 ## Build inputs
 
 - Source branch: `codex/no-intel-public-release`, based on public `main` at `8638638`.
-- CTranslate2 4.8.4 source commit `5de572ef60b67a0276c5989ee73d0072808ff4c3`, compiled by the Windows [CPU workflow](../../.github/workflows/build-cpu-translation.yml) with OpenBLAS and Ruy; MKL, oneDNN, CUDA, cuDNN and OpenMP disabled.
-- Audited CPU wheel SHA-256: `A8375961B786F6D7971EB78582197AFC9698326A004F617BFCF4E0916C683A8E`.
-- The final ZIP rebuild reuses this audited wheel. The build script now checks the source commit and OpenBLAS DLL hash, but the hosted vcpkg baseline is not fixed; a fresh compilation may differ and would require a separate audit and pin update before release use.
+- CTranslate2 4.8.4 source commit `5de572ef60b67a0276c5989ee73d0072808ff4c3`, compiled by the Windows [CPU workflow](../../.github/workflows/build-cpu-translation.yml) in [run 43388038243](https://github.com/Xar1yNumi/real-time-translation/actions/runs/43388038243) with threaded OpenBLAS and Ruy; MKL, oneDNN, CUDA, cuDNN and OpenMP disabled. The workflow succeeded on 2026-11-13.
+- Audited threaded CPU wheel SHA-256: `8DF9A7B07A9E1B380D1048F26736F6565C98078CEF1548C82EC4B58089C26EFC`. Its OpenBLAS configuration reports `MAX_THREADS=4`, no `SINGLE_THREADED`, and `openblas_get_parallel()=1`.
+- The final ZIP rebuild will reuse this audited wheel. The build script checks the CTranslate2 source commit and threaded OpenBLAS behavior, and the packaging script pins the wheel and native DLL hashes. The hosted vcpkg baseline is not fixed; a fresh compilation may differ and would require a separate audit and pin update before release use.
 - OPUS-MT models were independently converted from the two pinned Helsinki-NLP revisions and hash-checked against [the source manifest](../../tools/LocalTranslation.Probe/upstream-model-manifest.json). The previous third-party converted archives are not package inputs.
 - The public ZIP includes CPython 3.11, the pinned Whisper and Silero models, the CPU wheel, OPUS-MT models, the self-contained .NET desktop application and applicable license notices. Conversion-only PyTorch and Transformers packages are excluded.
 
-## Candidate checks
+## Threaded candidate checks
+
+- `RealTimeTranslation-public-cpu-threaded-candidate-r1-win-x64.zip` is 622,791,746 bytes, SHA-256 `39946FF14DC150E67C22F531AD21D7E86EB89E741A3091C10C8085723E3E5917`. The sibling checksum matched, and the ZIP was extracted into a fresh directory without additions or missing files compared with the previous complete package.
+- The extracted package contains `ctranslate2.dll` SHA-256 `1126D423BD475192FDF0640E0B7A13B697CA4829D51AA4995E1DF46FCA63C169` and `openblas.dll` SHA-256 `EB36FC978B0C07A4183061ED787FA381B1A7A89A2C908544FE690662B80B4F9A`. The PE import tables for these DLLs and the Python extension contain no Intel MKL/OpenMP or NVIDIA runtime dependency. A filename scan of the complete ZIP found no Intel/NVIDIA inference runtime or Azure binary.
+- The fresh package passed the three CPU worker tests (including four independent bilingual startups and 64 consecutive requests) and the English and Chinese WAV → speech recognition → translated subtitle test. Six direct fixed-sentence benchmark runs, three before packaging and three from the fresh extraction, produced readable bilingual output and no `Bad memory unallocation` diagnostic. Warm translation P95 was **218.79–226.92 ms English→Chinese** and **240.58–245.34 ms Chinese→English**, below the 250 ms per-direction gate on this computer. These measurements exclude speech recognition, startup, segmentation and UI rendering.
+- The freshly extracted candidate passed the 10-minute low-duty-cycle continuity test in **606.708 seconds**, checking ordered subtitles, bounded queues, no translation cancellations and bounded process memory growth. The desktop EXE was still running 12 seconds after hidden launch and was then stopped; this checks startup, not manual UI experience.
+- On 2026-11-13, locked restore, Release build, `dotnet format --verify-no-changes`, and four direct .NET test runners passed. The build reported zero warnings and errors; the direct runners reported **207 passed, 19 environment-gated skipped, 0 failed**. The infrastructure runner required normal Windows user permissions for settings and Credential Manager tests. `dotnet test` under this local runner previously returned code 5 with zero discovered tests, so direct xUnit executables were used.
+
+## Rejected earlier candidate checks
 
 - The `RealTimeTranslation-public-cpu-candidate-r6-win-x64.zip` candidate is 625,282,295 bytes, SHA-256 `425F0315C1C3D05A894ECB715B8692F45DD102B0074019B83933781E409D0CDB`. The ZIP was freshly extracted with no manual file additions.
 - Native package scan found `ctranslate2.dll` SHA-256 `2147B3E58E5C2380601025D588DE76B7931F8B17100D976CD69F9104129CAE15` and `openblas.dll` SHA-256 `75E0F2E92A8DED274CF519473989C5FBF891DD9F8326C57673A61E27FAD557A9`. No file name matching Intel MKL/OpenMP or NVIDIA CUDA/cuDNN appeared.
@@ -20,7 +28,7 @@
 
 ## Rejected candidates and remaining native risk
 
-The older `r4` ZIP passed an isolated 10-minute low-duty-cycle run in 625.878 seconds, but later repeated live tests exposed intermittent OpenBLAS allocator warnings inside the JSON pipe and one corrupted translation with its three-thread setting. `r4` and `r5` must not be published. The `r6` worker duplicates the protocol pipe and redirects native stdout before loading CTranslate2, and reduces intra-operation threads to two. No allocator warning entered the protocol in the new worker tests or six diagnostic WAV runs. The native OpenBLAS build reports `Bad memory unallocation` in benchmark logs even with two threads; its cause is unresolved. **Do not upload `r6` as a public binary.** A thread-safe OpenBLAS rebuild is being investigated.
+The older `r4` ZIP passed an isolated 10-minute low-duty-cycle run in 625.878 seconds, but later repeated live tests exposed intermittent OpenBLAS allocator warnings inside the JSON pipe and one corrupted translation with its three-thread setting. `r4` and `r5` must not be published. The `r6` worker duplicates the protocol pipe and redirects native stdout before loading CTranslate2, and reduces intra-operation threads to two. No allocator warning entered the protocol in its worker tests or six diagnostic WAV runs. Its **single-threaded** OpenBLAS build nevertheless reports `Bad memory unallocation` in benchmark logs even with two CTranslate2 threads. **Do not upload `r6` as a public binary.** The threaded OpenBLAS rebuild and its acceptance results are recorded above.
 
 ## Scope and limitations
 
