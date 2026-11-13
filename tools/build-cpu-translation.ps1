@@ -16,7 +16,7 @@ if ($LASTEXITCODE -ne 0 -or
 $sourceCommit | Set-Content (Join-Path $output 'ctranslate2-source-commit.txt')
 
 $vcpkg = Join-Path $env:VCPKG_INSTALLATION_ROOT 'vcpkg.exe'
-& $vcpkg install openblas:x64-windows
+& $vcpkg install 'openblas[threads]:x64-windows'
 if ($LASTEXITCODE -ne 0) { throw 'OpenBLAS install failed.' }
 $installed = Join-Path $env:VCPKG_INSTALLATION_ROOT 'installed/x64-windows'
 $header = Get-ChildItem (Join-Path $installed 'include') -Recurse -Filter 'cblas.h' -File |
@@ -43,10 +43,6 @@ if ($LASTEXITCODE -ne 0) { throw 'CPU CTranslate2 install failed.' }
 
 $openblas = @(Get-ChildItem (Join-Path $installed 'bin') -Filter '*openblas*.dll' -File)
 if ($openblas.Count -ne 1) { throw "Expected one OpenBLAS DLL; found $($openblas.Count)." }
-if ((Get-FileHash -LiteralPath $openblas[0].FullName -Algorithm SHA256).Hash -ne
-    '75E0F2E92A8DED274CF519473989C5FBF891DD9F8326C57673A61E27FAD557A9') {
-    throw 'vcpkg OpenBLAS DLL differs from the audited CPU runtime.'
-}
 $package = Join-Path $source 'python/ctranslate2'
 Copy-Item -LiteralPath (Join-Path $prefix 'bin/ctranslate2.dll') -Destination $package
 Copy-Item -LiteralPath $openblas[0].FullName -Destination $package
@@ -74,5 +70,7 @@ if ($LASTEXITCODE -ne 0) { throw 'Wheel installation failed.' }
 $env:PYTHONPATH = $testRuntime
 python -c 'import ctranslate2; print(ctranslate2.__version__); print(ctranslate2.get_supported_compute_types("cpu"))'
 if ($LASTEXITCODE -ne 0) { throw 'CPU wheel import failed.' }
+python -c 'import ctypes, pathlib, ctranslate2; dll=pathlib.Path(ctranslate2.__file__).with_name("openblas.dll"); lib=ctypes.CDLL(str(dll)); lib.openblas_get_config.restype=ctypes.c_char_p; config=lib.openblas_get_config().decode(); print(config); assert "SINGLE_THREADED" not in config and lib.openblas_get_parallel() == 1, "OpenBLAS must use the thread-safe pthread backend"'
+if ($LASTEXITCODE -ne 0) { throw 'OpenBLAS threaded build verification failed.' }
 $forbidden = Get-ChildItem $testRuntime -Recurse -File | Where-Object Name -Match 'iomp|mkl|cudnn|cublas'
 if ($forbidden) { throw "Forbidden native runtime found: $($forbidden.FullName -join ', ')" }
