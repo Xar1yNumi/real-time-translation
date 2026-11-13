@@ -1,0 +1,16 @@
+实时翻译字幕 Windows x64 预览版
+
+1. 先安装微软官方 Microsoft Visual C++ Redistributable x64：
+   https://aka.ms/vc14/vc_redist.x64.exe
+   如果电脑上已经安装了较新的 x64 版本，可以跳过。
+2. 完整解压此 ZIP，运行 RealTimeTranslation.Desktop.exe。不要单独移动 EXE。
+3. 选择系统声音或麦克风，再选择简体中文或英语，点击“开始翻译”。
+4. 更多说明和限制见 README.zh-CN.md。
+
+Real-time Translation — Windows x64 preview
+
+Install Microsoft's Visual C++ Redistributable x64 first, unless a recent x64
+version is already installed: https://aka.ms/vc14/vc_redist.x64.exe
+Extract the entire ZIP, then run RealTimeTranslation.Desktop.exe. Keep all files
+together. Choose system audio or microphone and a target language, then start.
+See README.md for details and limitations.

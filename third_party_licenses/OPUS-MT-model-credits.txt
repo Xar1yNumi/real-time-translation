@@ -11,13 +11,15 @@ https://huggingface.co/Helsinki-NLP/opus-mt-zh-en/tree/cf109095479db38d6df799875
 The upstream model card at this revision identifies CC-BY-4.0.
 https://creativecommons.org/licenses/by/4.0/
 
-Both archives were converted to CTranslate2 float16 format by Live Translator;
-the converter states that the weights were otherwise unchanged. Source:
-https://huggingface.co/Unbakedcookie/live-translator-models/tree/50473df5681764ebdef107dd78f7d21da66c28a7
+Both release models are converted directly from the pinned upstream revisions
+with CTranslate2 4.8.4 ct2-transformers-converter, quantization float16.
+The source files, SHA-256 checksums and converted model checksums are recorded
+in tools/LocalTranslation.Probe/upstream-model-manifest.json in the source
+repository. The upstream model authors are Helsinki-NLP / OPUS-MT. The model
+weights were not retrained; float16 conversion changes their representation.
 
-The converted English-to-Chinese archive's LICENCE.txt calls the model
-CC-BY-4.0, which conflicts with the pinned upstream card. Both the original
-converted-archive notice and the upstream Apache-2.0 attribution are retained
-here. This file does not resolve that conflict or grant redistribution rights.
+An earlier private trial used third-party converted archives whose English-to-
+Chinese license label conflicted with the upstream card. The public package
+uses this independent conversion and the upstream license labels above.
 See ../../third_party_licenses/SentencePiece-Apache-2.0.txt for the full Apache-2.0
 text included with this package.

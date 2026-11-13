@@ -4,8 +4,12 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import sys
 from pathlib import Path
+
+# Keep OpenBLAS from starting its own thread pool inside each translator thread.
+os.environ["OPENBLAS_NUM_THREADS"] = "1"
 
 MAX_LINE_BYTES = 16_384
 MAX_TEXT_BYTES = 12_000
@@ -26,7 +30,10 @@ class OpusEngine:
             if metadata.get("repo") != expected:
                 raise ValueError(f"unexpected model metadata for {source}")
             self.models[source] = (
-                ctranslate2.Translator(str(model_dir), device="cpu", compute_type="auto"),
+                ctranslate2.Translator(
+                    str(model_dir), device="cpu", compute_type="auto",
+                    inter_threads=1, intra_threads=2,
+                ),
                 sentencepiece.SentencePieceProcessor(model_file=str(model_dir / "source.spm")),
                 sentencepiece.SentencePieceProcessor(model_file=str(model_dir / "target.spm")),
                 metadata["language_tag"],
@@ -89,8 +96,14 @@ def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--models", type=Path, required=True)
     args = parser.parse_args()
-    engine = OpusEngine(args.models)
-    serve(sys.stdin.buffer, sys.stdout, engine)
+    # Native libraries can write allocator diagnostics to C stdout at any time.
+    # Keep a duplicate of the original pipe for JSON and redirect fd 1 before
+    # loading those libraries, so a diagnostic cannot become a protocol frame.
+    with os.fdopen(os.dup(sys.stdout.fileno()), "w", encoding="utf-8", buffering=1) as protocol, \
+            open(os.devnull, "w") as sink:
+        os.dup2(sink.fileno(), sys.stdout.fileno())
+        engine = OpusEngine(args.models)
+        serve(sys.stdin.buffer, protocol, engine)
 
 
 if __name__ == "__main__":

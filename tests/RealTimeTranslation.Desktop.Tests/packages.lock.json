@@ -94,11 +94,6 @@
           "NAudio.Midi": "3.3.0"
         }
       },
-      "System.Formats.Cbor": {
-        "type": "Transitive",
-        "resolved": "8.0.0",
-        "contentHash": "pOFOuygoSX5Tj82uaDTFQ8ipVOKJWSZtgSdR/uCvvXtnV5z6UbbUWFsaQ/8sBerEstvVjX1DyPcVM7ua7GWHqw=="
-      },
       "System.Numerics.Tensors": {
         "type": "Transitive",
         "resolved": "9.0.0",
@@ -204,6 +199,7 @@
           "NAudio": "[3.3.0, )",
           "OpenccNetLib": "[1.7.0, )",
           "RealTimeTranslation.Core": "[1.0.0, )",
+          "System.Formats.Cbor": "[8.0.2, )",
           "Whisper.net": "[1.9.1, )",
           "Whisper.net.Runtime": "[1.9.1, )",
           "Whisper.net.Runtime.Vulkan": "[1.9.1, )"
@@ -239,6 +235,12 @@
           "System.Formats.Cbor": "8.0.0",
           "ZstdSharp.Port": "0.8.8"
         }
+      },
+      "System.Formats.Cbor": {
+        "type": "CentralTransitive",
+        "requested": "[8.0.2, )",
+        "resolved": "8.0.2",
+        "contentHash": "C7D+Z/Pt2McSFp2bHKZQW/37kjVFZ1mTqGn2u6MME/XCgXNaSquCRW1/FD7w/AqpT+H6q32kzUevDJFsmCCsGw=="
       },
       "Whisper.net": {
         "type": "CentralTransitive",

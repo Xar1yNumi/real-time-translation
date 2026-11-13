@@ -1,48 +1,58 @@
 # Build the local Chinese–English preview
 
-This guide is for Windows x64 contributors who want to assemble a complete local trial from the public source. It downloads approximately 1 GB of model data plus a Python runtime and packages. The official GitHub repository does not currently distribute a ready-to-run binary.
+The Windows x64 release includes the application, speech and translation models, and a Python runtime. Contributors can reproduce the package from pinned sources. The model and runtime inputs stay under Git-ignored `artifacts/` and are never committed.
 
-## Prerequisites
+## Requirements
 
-- .NET SDK 10.0.301 (see [global.json](../global.json)).
-- [uv](https://docs.astral.sh/uv/getting-started/installation/) available on PATH.
-- Enough disk space for model archives, extraction, the runtime, and the final ZIP.
+- Windows x64, [.NET SDK 10.0.301](../global.json), PowerShell, and [uv](https://docs.astral.sh/uv/getting-started/installation/).
+- To run the built ZIP, install the [official Microsoft Visual C++ Redistributable x64](https://aka.ms/vc14/vc_redist.x64.exe) unless a recent x64 version is already installed. It is not bundled with the ZIP.
+- About 4 GB for upstream models and conversion tools, plus free space for the assembled ZIP.
+- The audited CPU wheel artifact from the [CTranslate2 build workflow](../.github/workflows/build-cpu-translation.yml). It compiles CTranslate2 4.8.4 with threaded OpenBLAS and Ruy, and without Intel or NVIDIA inference runtimes. The current release packaging script pins the audited wheel SHA-256 `8DF9A7B07A9E1B380D1048F26736F6565C98078CEF1548C82EC4B58089C26EFC`.
 
-Run these commands in the repository root in PowerShell. Everything below stays under Git-ignored artifacts/.
+## Prepare runtime and models
+
+Run in the repository root. The Python wheel listed in `requirements.txt` is used as a conversion tool; the release ZIP replaces it with the independently built CPU wheel.
 
 ```powershell
-New-Item -ItemType Directory -Force artifacts/models | Out-Null
 $env:UV_PYTHON_INSTALL_DIR = (Join-Path $PWD 'artifacts/uv-python')
 $env:UV_CACHE_DIR = (Join-Path $PWD 'artifacts/uv-cache')
 uv python install 3.11.17
 uv venv --python 3.11.17 artifacts/localtranslation-venv
 uv pip install --python artifacts/localtranslation-venv/Scripts/python.exe -r tools/LocalTranslation.Probe/requirements.txt
+uv pip install --python artifacts/localtranslation-venv/Scripts/python.exe torch==2.9.1 transformers==4.57.6
 
-curl.exe -L --fail -o artifacts/models/ggml-small-q5_1.bin https://huggingface.co/ggerganov/whisper.cpp/resolve/c521a4b02f422512d734391fdf08bb08c0862f68/ggml-small-q5_1.bin
-curl.exe -L --fail -o artifacts/models/silero_vad.onnx https://raw.githubusercontent.com/snakers4/silero-vad/60b7ffa243625ebdc1070275a29f18c87843786a/src/silero_vad/data/silero_vad.onnx
-curl.exe -L --fail -o artifacts/models/opus-mt-en-zh.zip https://huggingface.co/Unbakedcookie/live-translator-models/resolve/50473df5681764ebdef107dd78f7d21da66c28a7/opus-mt-en-zh.zip
-curl.exe -L --fail -o artifacts/models/opus-mt-zh-en.zip https://huggingface.co/Unbakedcookie/live-translator-models/resolve/50473df5681764ebdef107dd78f7d21da66c28a7/opus-mt-zh-en.zip
+New-Item -ItemType Directory -Force artifacts/models-public | Out-Null
+curl.exe -L --fail -o artifacts/models-public/ggml-small-q5_1.bin https://huggingface.co/ggerganov/whisper.cpp/resolve/c521a4b02f422512d734391fdf08bb08c0862f68/ggml-small-q5_1.bin
+curl.exe -L --fail -o artifacts/models-public/silero_vad.onnx https://raw.githubusercontent.com/snakers4/silero-vad/60b7ffa243625ebdc1070275a29f18c87843786a/src/silero_vad/data/silero_vad.onnx
+powershell -NoProfile -ExecutionPolicy Bypass -File tools/prepare-upstream-models.ps1
 ```
 
-Verify the four downloads before extraction. These are the hashes used in the owner trial; stop if any value differs.
+Verify the speech model SHA-256 values before packaging:
 
 | File | SHA-256 |
 | --- | --- |
-| ggml-small-q5_1.bin | AE85E4A935D7A567BD102FE55AFC16BB595BDB618E11B2FC7591BC08120411BB |
-| silero_vad.onnx | 1A153A22F4509E292A94E67D6F9B85E8DEB25B4988682B7E174C65279D8788E3 |
-| opus-mt-en-zh.zip | 1748DFA40AADF2AEA67EFF4D6845D8AABD3093604FC22125B7232F17F404947 |
-| opus-mt-zh-en.zip | 5AA44CB302EA85132B041B5C5DD7E76DBAD92AA4CC4537674EE4389A0DBD3CEF |
+| `ggml-small-q5_1.bin` | `AE85E4A935D7A567BD102FE55AFC16BB595BDB618E11B2FC7591BC08120411BB` |
+| `silero_vad.onnx` | `1A153A22F4509E292A94E67D6F9B85E8DEB25B4988682B7E174C65279D8788E3` |
+
+`prepare-upstream-models.ps1` downloads the exact Helsinki-NLP revisions and verifies the source SHA-256 hashes in [the manifest](../tools/LocalTranslation.Probe/upstream-model-manifest.json). It then converts each model with CTranslate2 and verifies the resulting weights. The release package adds direction-specific attribution files from the upstream metadata.
+
+Extract the CPU workflow artifact into `artifacts/cpu-translation-threaded-build/`, then unpack its wheel into `artifacts/cpu-translation-threaded-wheel/`. For example:
 
 ```powershell
-Get-FileHash artifacts/models/ggml-small-q5_1.bin, artifacts/models/silero_vad.onnx, artifacts/models/opus-mt-en-zh.zip, artifacts/models/opus-mt-zh-en.zip -Algorithm SHA256
-Expand-Archive artifacts/models/opus-mt-en-zh.zip artifacts/models/opus-mt-en-zh
-Expand-Archive artifacts/models/opus-mt-zh-en.zip artifacts/models/opus-mt-zh-en
-dotnet restore RealTimeTranslation.slnx --locked-mode
-dotnet build RealTimeTranslation.slnx --configuration Release --no-restore
-dotnet test RealTimeTranslation.slnx --configuration Release --no-build
-powershell -File tools/package-local-trial.ps1
+Add-Type -AssemblyName System.IO.Compression
+[IO.Compression.ZipFile]::ExtractToDirectory(
+    (Resolve-Path artifacts/cpu-translation-threaded-build/ctranslate2-4.8.4-cp311-cp311-win_amd64.whl).Path,
+    (Join-Path $PWD 'artifacts/cpu-translation-threaded-wheel'))
 ```
 
-The packaging script verifies the model weights again and writes a ZIP plus .sha256 under artifacts/. A normal source build alone does not produce a working translation app: the desktop UI requires local-data/ with the Python worker and models. Keep the entire extracted package together.
+The native ONNX Runtime DLL comes from the pinned `onnxruntime==1.23.2` Python package in the conversion environment. The package script verifies that DLL and the CPU inference wheel against the audited release hashes.
 
-The OPUS-MT archives are third-party CTranslate2 conversions. The English-to-Chinese archive's license metadata conflicts with its [pinned upstream model card](https://huggingface.co/Helsinki-NLP/opus-mt-en-zh/tree/408d9bc410a388e1d9aef112a2daba955b945255). This guide enables personal builds; it does not clear the ZIP for redistribution. See the [release checklist](release-checklist.md).
+## Build and test
+
+```powershell
+dotnet restore RealTimeTranslation.slnx --locked-mode
+dotnet build RealTimeTranslation.slnx --configuration Release --no-restore
+powershell -NoProfile -ExecutionPolicy Bypass -File tools/package-local-trial.ps1
+```
+
+The script writes a ZIP and a `.sha256` file under `artifacts/`. It excludes conversion tools, original upstream weights, and the `MSVCP140`/`VCOMP140` DLLs supplied by the official Redistributable. Python's standard `vcruntime140` files remain bundled. Install the official x64 Redistributable first, extract the entire ZIP, then launch `RealTimeTranslation.Desktop.exe`; moving the EXE alone breaks its local runtime lookup. See the [release checklist](release-checklist.md) and [model credits](../third_party_licenses/OPUS-MT-model-credits.txt) for verification and attribution.
