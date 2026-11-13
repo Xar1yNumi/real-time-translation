@@ -12,7 +12,7 @@
 
 ## 如何试用
 
-完整 Windows x64 试用包发布后可从 [Releases](https://github.com/Xar1yNumi/real-time-translation/releases) 下载；也可按下方“从源码构建”自行准备。ZIP 已包含本机模型和 Python 运行环境。
+完整 Windows x64 试用包及校验文件可从 [v0.1.0 预览版 1](https://github.com/Xar1yNumi/real-time-translation/releases/tag/v0.1.0-preview.1) 下载；也可按下方“从源码构建”自行准备。ZIP 已包含本机模型和 Python 运行环境。
 
 1. 若尚未安装，先从[微软官方下载并安装 Visual C++ Redistributable x64](https://aka.ms/vc14/vc_redist.x64.exe)。
 2. 在 Windows x64 上完整解压试用 ZIP，运行 RealTimeTranslation.Desktop.exe，不要单独移动 EXE。包内另有 `START-HERE.txt`。

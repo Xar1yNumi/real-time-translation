@@ -47,8 +47,8 @@
 
 ### Task 4: Publish
 
-**Files:** `docs/reports/2026-11-07-public-binary-release.md`, release notes on GitHub.
+**Files:** `docs/reports/2026-11-12-public-binary-release.md`, release notes on GitHub.
 
-- [ ] Confirm CI success and merge the source PR.
-- [ ] Rebuild the desktop application and complete ZIP from the merged commit using the previously audited CPU wheel, repeat package checks, and upload ZIP plus checksum to a GitHub Release. A newly compiled wheel requires its own hash and import audit before changing the release pin.
-- [ ] Verify public download availability and matching checksum; update documentation and close the binary release checklist.
+- [x] Confirm CI success and merge the source PR.
+- [x] Rebuild the desktop application and complete ZIP from the merged commit using the previously audited CPU wheel, repeat package checks, and upload ZIP plus checksum to [v0.1.0-preview.1](https://github.com/Xar1yNumi/real-time-translation/releases/tag/v0.1.0-preview.1). A newly compiled wheel still requires its own hash and import audit before changing the release pin.
+- [x] Verify the public download endpoint responds and GitHub's server-computed SHA-256 matches the local ZIP; update documentation and close the binary release checklist.

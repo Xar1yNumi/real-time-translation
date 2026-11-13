@@ -1,13 +1,19 @@
 # Windows x64 public binary release verification, 2026-11-12
 
+## Published preview, 2026-11-13
+
+- [v0.1.0-preview.1](https://github.com/Xar1yNumi/real-time-translation/releases/tag/v0.1.0-preview.1) is a public GitHub pre-release tagged at merged `main` commit `649fbbbc167e8dca1dcf0ffe98be9aa9c1f5724a` (PR #3). Its assets are the Windows x64 ZIP and sibling `.zip.sha256` file.
+- The final ZIP is **610,122,112 bytes**, SHA-256 **`1D011E8A11D09B6D4F50B282C498CB28AD37B8FACE4BE949AE1907B6E87F7E06`**. GitHub's public Releases API reports the ZIP as `uploaded` with the same byte count and server-computed SHA-256. The public ZIP download endpoint returned HTTP 200. A second full 610 MB download was started but not completed; the server digest and local package hash are the checksum evidence.
+- Fresh extraction produced 3,145 files and `START-HERE.txt`. The audited CTranslate2 and OpenBLAS hashes matched, and no NumPy, `MSVCP140`, `VCOMP140`, Intel or NVIDIA inference DLL was packaged. The post-merge package passed the three CPU worker tests, an English and Chinese WAV-to-translation test, the fixed eight-sentence warm P95 gate (**223.39 ms English→Chinese; 240.36 ms Chinese→English**), and a 10-minute low-duty-cycle continuity test (**606.984 seconds**, zero failures). The extracted desktop EXE remained running 12 seconds after launch. This does not measure a 30-minute high-load session or user-facing subtitle latency.
+
 ## Build inputs
 
 - Source branch: `codex/no-intel-public-release`, based on public `main` at `8638638`.
 - CTranslate2 4.8.4 source commit `5de572ef60b67a0276c5989ee73d0072808ff4c3`, compiled by the Windows [CPU workflow](../../.github/workflows/build-cpu-translation.yml) in [run 43388038243](https://github.com/Xar1yNumi/real-time-translation/actions/runs/43388038243) with threaded OpenBLAS and Ruy; MKL, oneDNN, CUDA, cuDNN and OpenMP disabled. The workflow succeeded on 2026-11-13.
 - Audited threaded CPU wheel SHA-256: `8DF9A7B07A9E1B380D1048F26736F6565C98078CEF1548C82EC4B58089C26EFC`. Its OpenBLAS configuration reports `MAX_THREADS=4`, no `SINGLE_THREADED`, and `openblas_get_parallel()=1`.
-- The final ZIP rebuild will reuse this audited wheel. The build script checks the CTranslate2 source commit and threaded OpenBLAS behavior, and the packaging script pins the wheel and native DLL hashes. The hosted vcpkg baseline is not fixed; a fresh compilation may differ and would require a separate audit and pin update before release use.
+- The published ZIP reuses this audited wheel. The build script checks the CTranslate2 source commit and threaded OpenBLAS behavior, and the packaging script pins the wheel and native DLL hashes. The hosted vcpkg baseline is not fixed; a fresh compilation may differ and would require a separate audit and pin update before release use.
 - OPUS-MT models were independently converted from the two pinned Helsinki-NLP revisions and hash-checked against [the source manifest](../../tools/LocalTranslation.Probe/upstream-model-manifest.json). The previous third-party converted archives are not package inputs.
-- The proposed ZIP includes CPython 3.11, the pinned Whisper and Silero models, the CPU wheel, OPUS-MT models, the self-contained .NET desktop application and applicable license notices. Conversion-only PyTorch and Transformers packages are excluded. The Microsoft VC++ x64 Redistributable is an external installation prerequisite; Python's standard `vcruntime140` files remain bundled.
+- The published ZIP includes CPython 3.11, the pinned Whisper and Silero models, the CPU wheel, OPUS-MT models, the self-contained .NET desktop application and applicable license notices. Conversion-only PyTorch and Transformers packages are excluded. The Microsoft VC++ x64 Redistributable is an external installation prerequisite; Python's standard `vcruntime140` files remain bundled.
 
 ## Revised VC++ prerequisite candidate
 
@@ -29,7 +35,7 @@
 
 An independent PE import audit found `MSVCP140.dll` required by 21 native files, `MSVCP140_1.dll` by ONNX Runtime, and `VCOMP140.dll` by six Whisper runtime files. None is present in the `r1` ZIP. The owner PC has signed Microsoft copies (version 14.50.35719.0), so its fresh-extraction test does not represent a Windows installation without the VC++ x64 runtime. **Do not upload `r1` as the public asset.**
 
-On 2026-11-13, the owner chose the [official Microsoft Visual C++ Redistributable x64](https://aka.ms/vc14/vc_redist.x64.exe) as an installation prerequisite instead of redistributing Microsoft DLLs inside the ZIP. Microsoft's [deployment guidance](https://learn.microsoft.com/en-us/cpp/windows/redistributing-visual-cpp-files) recommends the central Redistributable for servicing and limits direct redistribution to licensed Visual Studio users. The final package must put this prerequisite in its README, release notes, and root `START-HERE.txt`, check the three DLLs at application startup, and repeat package verification. A clean Windows machine without the prerequisite has not been tested; the startup check is unit tested with simulated missing libraries.
+On 2026-11-13, the owner chose the [official Microsoft Visual C++ Redistributable x64](https://aka.ms/vc14/vc_redist.x64.exe) as an installation prerequisite instead of redistributing Microsoft DLLs inside the ZIP. Microsoft's [deployment guidance](https://learn.microsoft.com/en-us/cpp/windows/redistributing-visual-cpp-files) recommends the central Redistributable for servicing and limits direct redistribution to licensed Visual Studio users. The final package puts this prerequisite in its README, release notes, and root `START-HERE.txt`, checks the three DLLs at application startup, and passed repeat package verification. A clean Windows machine without the prerequisite has not been tested; the startup check is unit tested with simulated missing libraries.
 
 ## Rejected earlier candidate checks
 

@@ -12,7 +12,7 @@ This stage supports Chinese and English only. If the detected source already mat
 
 ## Try it
 
-Download the complete Windows x64 ZIP from [Releases](https://github.com/Xar1yNumi/real-time-translation/releases) when available, or follow “Build from source” below. The ZIP includes the local models and Python runtime.
+Download the complete Windows x64 ZIP and its checksum from [v0.1.0 Preview 1](https://github.com/Xar1yNumi/real-time-translation/releases/tag/v0.1.0-preview.1), or follow “Build from source” below. The ZIP includes the local models and Python runtime.
 
 1. Install the [Microsoft Visual C++ Redistributable x64](https://aka.ms/vc14/vc_redist.x64.exe) from Microsoft if it is not already present.
 2. Fully extract the Windows x64 trial ZIP and run RealTimeTranslation.Desktop.exe. Keep the files together. The ZIP also contains `START-HERE.txt`.

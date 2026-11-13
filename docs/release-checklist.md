@@ -20,7 +20,7 @@ Status: **Chinese–English local MVP preview**. Azure is optional legacy source
 - [x] Run the new CPU package for 10 minutes with ordered subtitles, bounded queues and bounded memory growth; see [release report](reports/2026-11-12-public-binary-release.md).
 - [x] Rebuild with the threaded OpenBLAS wheel, then pass fresh-extraction checks, both WAV directions, the 250 ms per-direction P95 gate, the 10-minute stability test, and executable launch. The single-threaded `r6` ZIP is rejected; see the [release report](reports/2026-11-12-public-binary-release.md).
 - [x] Disclose the official Microsoft Visual C++ Redistributable x64 prerequisite, unit-test the missing-runtime startup check, and rebuild the ZIP with `START-HERE.txt`. The revised ZIP passed two-direction WAV, latency, 10-minute stability, hash and executable launch checks; see the [release report](reports/2026-11-12-public-binary-release.md).
-- [ ] Merge the final source commit, build the desktop application and release ZIP from it using the audited CPU wheel, then upload ZIP plus checksum to a GitHub Release and verify the public download.
+- [x] Merge the final source commit, build the desktop application and release ZIP from it using the audited CPU wheel, then upload ZIP plus checksum to [v0.1.0-preview.1](https://github.com/Xar1yNumi/real-time-translation/releases/tag/v0.1.0-preview.1). The public ZIP endpoint returned HTTP 200, and GitHub's asset size and SHA-256 match the local package; see the [release report](reports/2026-11-12-public-binary-release.md).
 
 ## Limits to disclose
 
