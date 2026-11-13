@@ -4,15 +4,15 @@
 
 Windows desktop subtitles for spoken Chinese and English. Choose system audio or microphone and a target language. The app detects the source language and appends original text and translations to a scrollable floating window.
 
-## Public source preview
+## Windows x64 preview
 
 Speech recognition, segmentation, and text translation run on the computer. No Azure, MyMemory, account, or API key is needed. The complete trial ZIP includes its models and Python runtime; users do not install Python. Once extracted, it can run without a network connection. The first launch verifies the bundled files, and initial speech engine preparation may take longer.
 
-This stage supports Chinese and English only. If the detected source already matches the selected target, the original is shown. Other detected languages do not produce a guessed translation. Speech, video, and songs use the same path, although music and noise may impair recognition. Per-app capture, history editing, and export are later stages.
+This stage supports Chinese and English only. If the detected source already matches the selected target, the original is shown. Other detected languages do not produce a guessed translation. Speech, video, and songs use the same path, although music and noise may impair recognition. Translation can paraphrase or omit part of a sentence. Per-app capture, history editing, and export are later stages.
 
 ## Try it
 
-These steps apply to a complete locally assembled trial ZIP. The public repository currently contains source only and has no downloadable complete package; follow “Build from source” below to prepare the runtime files.
+Download the complete Windows x64 ZIP from [Releases](https://github.com/Xar1yNumi/real-time-translation/releases) when available, or follow “Build from source” below. The ZIP includes the local models and Python runtime.
 
 1. Fully extract the Windows x64 trial ZIP and run RealTimeTranslation.Desktop.exe. Keep the files together.
 2. Wait for the local components to show as ready. If they are incomplete, extract the whole package again.
@@ -23,9 +23,9 @@ For calls, choose system audio when the other person's voice plays through the d
 
 ## Verification status
 
-Public binary redistribution is still pending; the [binary license audit](docs/reports/2026-11-07-binary-license-audit.md) records the tested candidate and remaining release gates.
+The [public binary release report](docs/reports/2026-11-12-public-binary-release.md) records the CPU build, model provenance, package checks and live test results. The [earlier license audit](docs/reports/2026-11-07-binary-license-audit.md) describes a different, private candidate that is not a release asset.
 
-The extracted trial package launched on the desktop and translated fixed English and Chinese WAV samples in both directions. A 10-minute low-duty-cycle translation test passed. An English sample played through the default speaker also produced a simplified Chinese subtitle through Windows loopback. The [Task 4 report](docs/reports/2026-11-04-local-preview-vad.md) records preview and final timing; the [Task 5 report](docs/reports/2026-11-06-local-trial-task5.md) records package checks, and the [continuity report](docs/reports/2026-11-07-local-continuity.md) records queue, order, and memory measurements. The project owner waived the full live microphone translation check; it is not claimed as tested. Real song accuracy and a physical network disconnect have not been measured. The repository is a **public source preview**. The existing owner trial ZIP is not a GitHub Release asset while third-party redistribution review remains open.
+The new CPU package passed a fresh extracted-ZIP English and Chinese WAV test, including speech recognition and translated subtitles, plus a 10-minute low-duty-cycle continuity test. Earlier default-speaker loopback evidence is in the [continuity report](docs/reports/2026-11-07-local-continuity.md). The project owner waived full live microphone testing; real song accuracy and physical network disconnection have not been measured.
 
 ## Build from source
 
@@ -35,9 +35,9 @@ Requires Windows x64 and [.NET SDK 10.0.301](global.json). A normal build does n
     dotnet build RealTimeTranslation.slnx --configuration Release --no-restore
     dotnet test RealTimeTranslation.slnx --configuration Release --no-build
 
-After model preparation, run `powershell -File tools/package-local-trial.ps1` to assemble a complete trial. The script does not obtain or audit every third-party redistribution license.
+After model preparation, run `powershell -NoProfile -ExecutionPolicy Bypass -File tools/package-local-trial.ps1` to assemble a complete trial. The script checks pinned model and native-runtime hashes, but does not download its inputs.
 
-The packaging script writes artifacts/RealTimeTranslation-local-zh-en-win-x64.zip and a sibling .sha256. Models and runtime files are excluded from Git. See the [release checklist](docs/release-checklist.md) for the remaining public binary work.
+The packaging script writes `artifacts/RealTimeTranslation-local-zh-en-win-x64.zip` and a sibling `.sha256`. Models and runtime files are excluded from Git. See the [release checklist](docs/release-checklist.md) for publication status.
 
 ## Privacy and licenses
 

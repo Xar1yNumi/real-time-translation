@@ -8,7 +8,12 @@ New-Item -ItemType Directory -Path $output -Force | Out-Null
 $source = Join-Path $env:RUNNER_TEMP 'CTranslate2-v4.8.4'
 git clone --recursive --depth 1 --branch v4.8.4 https://github.com/OpenNMT/CTranslate2.git $source
 if ($LASTEXITCODE -ne 0) { throw 'Could not fetch pinned CTranslate2 source.' }
-git -C $source rev-parse HEAD | Set-Content (Join-Path $output 'ctranslate2-source-commit.txt')
+$sourceCommit = (git -C $source rev-parse HEAD).Trim()
+if ($LASTEXITCODE -ne 0 -or
+    $sourceCommit -ne '5de572ef60b67a0276c5989ee73d0072808ff4c3') {
+    throw 'CTranslate2 tag does not resolve to the audited source commit.'
+}
+$sourceCommit | Set-Content (Join-Path $output 'ctranslate2-source-commit.txt')
 
 $vcpkg = Join-Path $env:VCPKG_INSTALLATION_ROOT 'vcpkg.exe'
 & $vcpkg install openblas:x64-windows
@@ -38,6 +43,10 @@ if ($LASTEXITCODE -ne 0) { throw 'CPU CTranslate2 install failed.' }
 
 $openblas = @(Get-ChildItem (Join-Path $installed 'bin') -Filter '*openblas*.dll' -File)
 if ($openblas.Count -ne 1) { throw "Expected one OpenBLAS DLL; found $($openblas.Count)." }
+if ((Get-FileHash -LiteralPath $openblas[0].FullName -Algorithm SHA256).Hash -ne
+    '75E0F2E92A8DED274CF519473989C5FBF891DD9F8326C57673A61E27FAD557A9') {
+    throw 'vcpkg OpenBLAS DLL differs from the audited CPU runtime.'
+}
 $package = Join-Path $source 'python/ctranslate2'
 Copy-Item -LiteralPath (Join-Path $prefix 'bin/ctranslate2.dll') -Destination $package
 Copy-Item -LiteralPath $openblas[0].FullName -Destination $package

@@ -4,15 +4,15 @@
 
 这是一个 Windows 中英双向实时字幕项目。选择系统声音或麦克风，以及想看的语言（简体中文或英语）；程序自动判断原语种，在悬浮窗持续追加本次会话的原文和译文。
 
-## 当前公开源码预览版
+## Windows x64 预览版
 
 语音识别、分句和文字翻译都在本机运行；无需 Azure、MyMemory、账号或 API Key。完整试用包自带模型与 Python 运行文件，用户无需另装 Python。解压后运行可断网；首次打开会校验文件，首次启动识别引擎可能较慢。
 
-目前只支持中文和英语之间互译。若识别出的语言与目标语言相同，则显示原文；其他语言不会猜测译文。普通讲话、视频和歌曲使用同一流程，伴奏或噪声可能造成明显错字。单应用音源、历史编辑和导出属于后续阶段。
+目前只支持中文和英语之间互译。若识别出的语言与目标语言相同，则显示原文；其他语言不会猜测译文。普通讲话、视频和歌曲使用同一流程，伴奏或噪声可能造成明显错字；译文也可能改写或漏掉部分短语。单应用音源、历史编辑和导出属于后续阶段。
 
 ## 如何试用
 
-以下步骤适用于本机已制作的完整试用包。公开仓库目前只有源码，GitHub 暂无可下载的完整安装包；请按下方“从源码构建”准备运行文件。
+完整 Windows x64 试用包发布后可从 [Releases](https://github.com/Xar1yNumi/real-time-translation/releases) 下载；也可按下方“从源码构建”自行准备。ZIP 已包含本机模型和 Python 运行环境。
 
 1. 在 Windows x64 上完整解压试用 ZIP，运行 RealTimeTranslation.Desktop.exe，不要单独移动 EXE。
 2. 等待界面显示“本机中英翻译组件已就绪”。若提示组件不完整，请重新解压完整文件夹。
@@ -23,9 +23,9 @@
 
 ## 当前验证情况
 
-公开二进制包仍待许可核对；[二进制许可核对记录](docs/reports/2026-11-07-binary-license-audit.md)列出已测试的候选包和发布前待办。
+[公开二进制发布记录](docs/reports/2026-11-12-public-binary-release.md)列出新 CPU 推理库、模型来源、打包检查和实测结果。[早期许可核对记录](docs/reports/2026-11-07-binary-license-audit.md)针对的是另一个未公开发布的旧候选包。
 
-解压试用包已从桌面启动，并用英文、中文 WAV 分别得到两方向译文；10 分钟低占空比连续翻译测试通过。默认扬声器播放英文样本后，经系统回环采集产生了简体中文字幕。[Task 4 实测记录](docs/reports/2026-11-04-local-preview-vad.md)包含预览和终稿延迟，[Task 5 试用包记录](docs/reports/2026-11-06-local-trial-task5.md)列出包内容，[连续运行补充记录](docs/reports/2026-11-07-local-continuity.md)列出队列、顺序和内存实测。麦克风完整翻译按项目负责人决定免测放行，不能记为实测通过；真实歌曲准确率和物理断网仍缺现场数据。当前仓库按**源码预览版**公开，现有试用 ZIP 还需完成第三方分发许可核对，暂不作为 GitHub Release 附件发布。
+新版 CPU 试用包解压后，已用英文和中文 WAV 跑通语音识别到翻译字幕的完整链路，并通过 10 分钟低占空比连续运行测试。旧包的默认扬声器回环记录见[连续运行记录](docs/reports/2026-11-07-local-continuity.md)。麦克风完整翻译按项目负责人决定免测，不能记为实测通过；真实歌曲准确率和物理断网尚未现场验证。
 
 ## 从源码构建
 
@@ -35,9 +35,9 @@
     dotnet build RealTimeTranslation.slnx --configuration Release --no-restore
     dotnet test RealTimeTranslation.slnx --configuration Release --no-build
 
-准备模型后，再运行 `powershell -File tools/package-local-trial.ps1` 制作完整试用包。打包脚本不负责获取或核验全部第三方分发许可。
+准备模型后，运行 `powershell -NoProfile -ExecutionPolicy Bypass -File tools/package-local-trial.ps1` 制作完整试用包。脚本核对固定的模型和本机推理库哈希，不负责下载输入文件。
 
-打包脚本会生成 artifacts/RealTimeTranslation-local-zh-en-win-x64.zip 和相邻的 .sha256。模型和运行环境均不进入 Git。公开二进制发布的待办见[发布清单](docs/release-checklist.md)。
+打包脚本会生成 `artifacts/RealTimeTranslation-local-zh-en-win-x64.zip` 和相邻的 `.sha256`。模型和运行环境均不进入 Git。发布状态见[发布清单](docs/release-checklist.md)。
 
 ## 隐私与许可
 

@@ -44,6 +44,23 @@ foreach ($direction in @('en-zh', 'zh-en')) {
         language_tag = $entry.language_tag
         conversion = 'CTranslate2 4.8.4 ct2-transformers-converter --quantization float16'
     }
-    $metadata | ConvertTo-Json -Compress | Set-Content -LiteralPath (Join-Path $destination 'opus_mt.json') -Encoding utf8
+    [IO.File]::WriteAllText(
+        (Join-Path $destination 'opus_mt.json'),
+        ($metadata | ConvertTo-Json -Compress),
+        [Text.UTF8Encoding]::new($false))
+    $allowed = @($entry.converted_files.PSObject.Properties.Name) + @('opus_mt.json')
+    $actual = @(Get-ChildItem -LiteralPath $destination -Recurse -File | ForEach-Object {
+        $_.FullName.Substring($destination.Length + 1).Replace('\', '/')
+    })
+    if (@($actual | Where-Object { $_ -notin $allowed }).Count -gt 0 -or
+        @($allowed | Where-Object { $_ -notin $actual }).Count -gt 0) {
+        throw "Converted model directory has missing or extra files: $direction"
+    }
+    foreach ($file in $entry.converted_files.PSObject.Properties) {
+        if ((Get-FileHash -LiteralPath (Join-Path $destination $file.Name) -Algorithm SHA256).Hash -ne
+            $file.Value) {
+            throw "Converted model file differs from the audited manifest: $direction/$($file.Name)"
+        }
+    }
     Write-Output "Verified upstream model and conversion: $direction"
 }
