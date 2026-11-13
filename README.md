@@ -6,7 +6,7 @@ Windows desktop subtitles for spoken Chinese and English. Choose system audio or
 
 ## Windows x64 preview
 
-Speech recognition, segmentation, and text translation run on the computer. No Azure, MyMemory, account, or API key is needed. The complete trial ZIP includes its models and Python runtime; users do not install Python. Once extracted, it can run without a network connection. The first launch verifies the bundled files, and initial speech engine preparation may take longer.
+Speech recognition, segmentation, and text translation run on the computer. No Azure, MyMemory, account, or API key is needed. The trial ZIP includes its models and Python runtime; users do not install Python. **Install the [official Microsoft Visual C++ Redistributable x64](https://aka.ms/vc14/vc_redist.x64.exe) first, unless a recent x64 version is already installed.** The ZIP does not include the full VC++ Redistributable; Python carries its own `vcruntime140` files. After that prerequisite is installed, translation does not require a network connection. The first launch verifies the bundled files, and initial speech engine preparation may take longer.
 
 This stage supports Chinese and English only. If the detected source already matches the selected target, the original is shown. Other detected languages do not produce a guessed translation. Speech, video, and songs use the same path, although music and noise may impair recognition. Translation can paraphrase or omit part of a sentence. Per-app capture, history editing, and export are later stages.
 
@@ -14,10 +14,11 @@ This stage supports Chinese and English only. If the detected source already mat
 
 Download the complete Windows x64 ZIP from [Releases](https://github.com/Xar1yNumi/real-time-translation/releases) when available, or follow “Build from source” below. The ZIP includes the local models and Python runtime.
 
-1. Fully extract the Windows x64 trial ZIP and run RealTimeTranslation.Desktop.exe. Keep the files together.
-2. Wait for the local components to show as ready. If they are incomplete, extract the whole package again.
-3. Select System audio for the default speaker stream or Microphone for nearby speech, then choose Simplified Chinese or English.
-4. Click Start translation. A revisable original-text preview appears first; the final original and translation are appended above. Hover over the overlay for Pause, Return to settings, and Close. Scroll to review this session; closing clears it.
+1. Install the [Microsoft Visual C++ Redistributable x64](https://aka.ms/vc14/vc_redist.x64.exe) from Microsoft if it is not already present.
+2. Fully extract the Windows x64 trial ZIP and run RealTimeTranslation.Desktop.exe. Keep the files together. The ZIP also contains `START-HERE.txt`.
+3. Wait for the local components to show as ready. If they are incomplete, extract the whole package again. If the VC++ runtime is missing, the app displays the official download link.
+4. Select System audio for the default speaker stream or Microphone for nearby speech, then choose Simplified Chinese or English.
+5. Click Start translation. A revisable original-text preview appears first; the final original and translation are appended above. Hover over the overlay for Pause, Return to settings, and Close. Scroll to review this session; closing clears it.
 
 For calls, choose system audio when the other person's voice plays through the default output device. Other sounds on the same stream can also be captured. The app cannot isolate one application or speaker yet.
 

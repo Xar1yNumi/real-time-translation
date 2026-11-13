@@ -5,6 +5,7 @@ The Windows x64 release includes the application, speech and translation models,
 ## Requirements
 
 - Windows x64, [.NET SDK 10.0.301](../global.json), PowerShell, and [uv](https://docs.astral.sh/uv/getting-started/installation/).
+- To run the built ZIP, install the [official Microsoft Visual C++ Redistributable x64](https://aka.ms/vc14/vc_redist.x64.exe) unless a recent x64 version is already installed. It is not bundled with the ZIP.
 - About 4 GB for upstream models and conversion tools, plus free space for the assembled ZIP.
 - The audited CPU wheel artifact from the [CTranslate2 build workflow](../.github/workflows/build-cpu-translation.yml). It compiles CTranslate2 4.8.4 with threaded OpenBLAS and Ruy, and without Intel or NVIDIA inference runtimes. The current release packaging script pins the audited wheel SHA-256 `8DF9A7B07A9E1B380D1048F26736F6565C98078CEF1548C82EC4B58089C26EFC`.
 
@@ -54,4 +55,4 @@ dotnet build RealTimeTranslation.slnx --configuration Release --no-restore
 powershell -NoProfile -ExecutionPolicy Bypass -File tools/package-local-trial.ps1
 ```
 
-The script writes a complete ZIP and a `.sha256` file under `artifacts/`. It excludes conversion tools and the original upstream weights. Extract the entire ZIP before launching `RealTimeTranslation.Desktop.exe`; moving the EXE alone breaks its local runtime lookup. See the [release checklist](release-checklist.md) and [model credits](../third_party_licenses/OPUS-MT-model-credits.txt) for verification and attribution.
+The script writes a ZIP and a `.sha256` file under `artifacts/`. It excludes conversion tools, original upstream weights, and the `MSVCP140`/`VCOMP140` DLLs supplied by the official Redistributable. Python's standard `vcruntime140` files remain bundled. Install the official x64 Redistributable first, extract the entire ZIP, then launch `RealTimeTranslation.Desktop.exe`; moving the EXE alone breaks its local runtime lookup. See the [release checklist](release-checklist.md) and [model credits](../third_party_licenses/OPUS-MT-model-credits.txt) for verification and attribution.

@@ -1,6 +1,6 @@
 # Third-party notices for the local desktop preview
 
-The source project uses the components below. The complete Windows ZIP also bundles runtime files and model data. The CPU inference wheel is built from pinned CTranslate2 source with OpenBLAS and Ruy, without Intel MKL, Intel OpenMP, or NVIDIA runtimes.
+The source project uses the components below. The Windows ZIP bundles the application, Python runtime, and model data. The CPU inference wheel is built from pinned CTranslate2 source with OpenBLAS and Ruy, without Intel MKL, Intel OpenMP, or NVIDIA runtimes. Microsoft Visual C++ Redistributable x64 is an external installation prerequisite: the ZIP does not include `MSVCP140.dll`, `MSVCP140_1.dll`, or `VCOMP140.dll`. Python's standard `vcruntime140` files remain bundled. Install the x64 Redistributable from [Microsoft](https://aka.ms/vc14/vc_redist.x64.exe) if needed.
 
 | Component | Version | License and attribution |
 | --- | --- | --- |
@@ -32,6 +32,6 @@ The above copyright notice and this permission notice shall be included in all c
 
 THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-The complete package bundles a [pinned whisper.cpp speech model](https://huggingface.co/ggerganov/whisper.cpp), the Silero VAD model, two independently converted OPUS-MT directions, and CPython. Python package metadata and license files remain in the runtime folder, including NumPy's third-party notices. The binary build and verification evidence are recorded in the [release report](https://github.com/Xar1yNumi/real-time-translation/blob/main/docs/reports/2026-11-12-public-binary-release.md).
+The complete package bundles a [pinned whisper.cpp speech model](https://huggingface.co/ggerganov/whisper.cpp), the Silero VAD model, two independently converted OPUS-MT directions, and CPython. Python package metadata and license files remain in the runtime folder. Conversion-only NumPy is excluded from the release ZIP. The binary build and verification evidence are recorded in the [release report](https://github.com/Xar1yNumi/real-time-translation/blob/main/docs/reports/2026-11-12-public-binary-release.md).
 
 The optional Azure adapter and Microsoft Cognitive Services Speech SDK are retained as source project dependencies for later evaluation. They are not included in the default desktop package.

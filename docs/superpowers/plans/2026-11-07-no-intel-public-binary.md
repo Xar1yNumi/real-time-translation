@@ -2,7 +2,7 @@
 
 > **For agentic workers:** Execute these tasks in order with one verifiable result per task.
 
-**Goal:** Publish a working, self-contained Windows x64 Chinese–English subtitle ZIP without bundled Intel runtime files or third-party converted models.
+**Goal:** Publish a working Windows x64 Chinese–English subtitle ZIP with bundled models and Python, without Intel runtime files or third-party converted models. The owner-approved Microsoft Visual C++ x64 Redistributable is an external prerequisite.
 
 **Architecture:** A Windows CI job compiles pinned CTranslate2 with OpenBLAS/Ruy and no OpenMP. The local packaging script combines this audited wheel, independently converted pinned OPUS-MT models, and the existing WPF application.
 
@@ -12,6 +12,7 @@
 
 - Keep existing UI/audio behavior and Chinese–English scope.
 - No Azure, API key, account, mandatory online service, Intel or NVIDIA runtime in the release ZIP.
+- Do not copy Microsoft VC++ DLLs from the build machine. Disclose the official x64 Redistributable prerequisite and detect missing DLLs at startup.
 - Do not publish any binary until provenance, licenses, fresh extraction, live translation, latency and stability gates pass.
 
 ---
@@ -41,6 +42,7 @@
 - [x] Package only the new wheel, model files, Python runtime and WPF app; reject Intel/NVIDIA DLLs and stale model hashes.
 - [x] Include OpenBLAS/Ruy and other applicable license texts and provenance notes.
 - [x] Run locked restore, Release build, direct test runners, extracted-ZIP two-direction live test, latency probe and 10-minute stability test.
+- [x] After review found the missing Microsoft VC++ runtime dependency, document the official x64 installation prerequisite, add a startup check, exclude vendored NumPy VC++ DLLs, and repeat the package acceptance gates.
 - [x] Verify ZIP SHA-256 and contents, then commit and push for CI review.
 
 ### Task 4: Publish

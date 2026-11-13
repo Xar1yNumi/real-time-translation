@@ -41,6 +41,19 @@ public partial class App : Application, IDisposable
 
         try
         {
+            var missingRuntime = VisualCppRuntimePrerequisite.FindMissing();
+            if (missingRuntime.Count > 0)
+            {
+                MessageBox.Show(
+                    "缺少 Microsoft Visual C++ x64 运行库（" +
+                    string.Join("、", missingRuntime) + "）。\n" +
+                    "请先从微软官方下载并安装，随后重新启动实时翻译：\n" +
+                    VisualCppRuntimePrerequisite.DownloadUrl,
+                    "需要 VC++ 运行库", MessageBoxButton.OK, MessageBoxImage.Error);
+                Shutdown();
+                return;
+            }
+
             var bundle = Path.Combine(AppContext.BaseDirectory, "local-data");
             modelStore = new BundledWhisperModelStore(bundle);
             translator = new LocalTranslatorHost(

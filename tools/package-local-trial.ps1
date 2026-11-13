@@ -95,7 +95,6 @@ New-Item -ItemType Directory -Path $packageDestination -Force | Out-Null
 $runtimePackages = @(
     'sentencepiece', 'sentencepiece-0.2.1.dist-info',
     'opencc', 'opencc_python_reimplemented-0.1.7.dist-info',
-    'numpy', 'numpy.libs', 'numpy-2.4.6.dist-info',
     'yaml', '_yaml', 'pyyaml-6.0.3.dist-info'
 )
 foreach ($package in $runtimePackages) {
@@ -135,6 +134,7 @@ Copy-Item -LiteralPath (Join-Path $repository 'third_party_licenses/OPUS-MT-mode
     -Destination (Join-Path $modelsDestination 'MODEL-CREDITS.txt')
 Copy-Item -LiteralPath (Join-Path $repository 'LICENSE'), `
     (Join-Path $repository 'THIRD_PARTY_NOTICES.md'), `
+    (Join-Path $repository 'START-HERE.txt'), `
     (Join-Path $repository 'README.md'), `
     (Join-Path $repository 'README.zh-CN.md') -Destination $output
 Copy-Item -LiteralPath (Join-Path $repository 'third_party_licenses') `
@@ -156,6 +156,10 @@ if (Get-ChildItem -LiteralPath $output -Recurse -File |
 if (Get-ChildItem -LiteralPath $output -Recurse -File -Include *.dll, *.pyd |
     Where-Object { $_.Name -match 'iomp|mkl|cudnn|cublas|cudart' }) {
     throw 'The local trial unexpectedly contains an Intel or NVIDIA native runtime.'
+}
+if (Get-ChildItem -LiteralPath $output -Recurse -File |
+    Where-Object { $_.Name -match '^(msvcp140(?:_1|-.*)?|vcomp140)\.dll$' }) {
+    throw 'The local trial unexpectedly redistributes Microsoft VC++ runtime DLLs.'
 }
 
 Compress-Archive -Path (Join-Path $output '*') -DestinationPath $archive -CompressionLevel Optimal
